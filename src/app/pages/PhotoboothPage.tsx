@@ -115,6 +115,8 @@ export default function PhotoboothPage() {
     day: "numeric",
   });
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+
   return (
     <div className="bg-[#1E1518] min-h-[calc(100vh-72px)] overflow-hidden relative font-sans text-white select-none">
       {/* Magic Board Ambient Background */}
@@ -126,18 +128,18 @@ export default function PhotoboothPage() {
         }}
       />
 
-      <div className="relative z-10 w-full h-[calc(100vh-72px)] flex items-center justify-center p-6 overflow-hidden">
+      <div className="relative z-10 w-full min-h-[calc(100vh-72px)] flex items-center justify-center p-3 sm:p-6 overflow-hidden">
         {!hasPermission ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-[#140e11] border border-white/25 rounded-[20px] p-10 max-w-md text-center shadow-[0_10px_40px_rgba(209,126,165,0.2)]"
+            className="bg-[#140e11] border border-white/25 rounded-[20px] p-6 sm:p-10 max-w-md text-center shadow-[0_10px_40px_rgba(209,126,165,0.2)] mx-auto my-auto"
           >
             <div className="w-16 h-16 bg-[#ca498c]/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <Camera className="w-8 h-8 text-[#ca498c]" />
             </div>
-            <h1 className="font-serif text-3xl mb-3">Magic Photobooth</h1>
-            <p className="text-white/70 text-sm mb-8 leading-relaxed font-sans">
+            <h1 className="font-serif text-2xl sm:text-3xl mb-3">Magic Photobooth</h1>
+            <p className="text-white/70 text-xs sm:text-sm mb-8 leading-relaxed font-sans">
               We need access to your camera to start the photobooth. All photos stay securely on your device and are never uploaded to any server.
             </p>
             <button
@@ -148,13 +150,12 @@ export default function PhotoboothPage() {
             </button>
           </motion.div>
         ) : (
-          <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-[calc(100vh-90px)] flex flex-col lg:flex-items-center lg:justify-center">
             
-            {/* ── macOS Desktop Widgets (Left Side with Custom Flower Image) ── */}
-            <div className="absolute left-8 top-8 hidden lg:flex flex-col gap-4 z-20 pointer-events-none select-none">
-              {/* Clock Widget */}
-              <div className="w-[280px] bg-[#2a1e23]/80 backdrop-blur-md border border-white/10 rounded-[20px] p-5 shadow-2xl flex flex-col justify-center">
-                <div className="font-serif text-[42px] font-bold text-[#E8A0BE] leading-none tracking-tight">
+            {/* ── macOS Desktop Widgets (Hidden on small mobile screens to prevent crowding) ── */}
+            <div className="absolute left-4 top-4 hidden lg:flex flex-col gap-4 z-20 pointer-events-none select-none">
+              <div className="w-[260px] bg-[#2a1e23]/80 backdrop-blur-md border border-white/10 rounded-[20px] p-4 shadow-2xl flex flex-col justify-center">
+                <div className="font-serif text-[36px] font-bold text-[#E8A0BE] leading-none tracking-tight">
                   {timeString}
                 </div>
                 <div className="font-sans text-xs text-white/70 mt-2 font-medium tracking-wide">
@@ -162,8 +163,7 @@ export default function PhotoboothPage() {
                 </div>
               </div>
 
-              {/* Custom Flower Aesthetic Image Widget */}
-              <div className="w-[280px] h-[190px] rounded-[20px] overflow-hidden border border-white/10 shadow-2xl">
+              <div className="w-[260px] h-[170px] rounded-[20px] overflow-hidden border border-white/10 shadow-2xl">
                 <img
                   src={imgWidgetFlower}
                   alt="Custom aesthetic flower"
@@ -172,14 +172,14 @@ export default function PhotoboothPage() {
               </div>
             </div>
 
-            {/* ── Magic Board Toggle Button (Bottom Left) ── */}
-            <div className="absolute left-6 bottom-6 z-40">
+            {/* ── Magic Board Toggle Button (Responsive positioning) ── */}
+            <div className="absolute left-4 bottom-20 lg:bottom-6 z-40">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="flex items-center gap-2.5 px-5 py-3 bg-[#140e11]/90 hover:bg-[#1a1116] border border-[#ca498c]/50 rounded-full shadow-[0_4px_20px_rgba(209,126,165,0.3)] transition-all cursor-pointer group"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-[#140e11]/90 hover:bg-[#1a1116] border border-[#ca498c]/50 rounded-full shadow-[0_4px_20px_rgba(209,126,165,0.3)] transition-all cursor-pointer group"
               >
                 <Sparkles className="w-4 h-4 text-[#ca498c] animate-pulse" />
-                <span className="font-sans text-sm font-medium text-white">Magic Board Menu</span>
+                <span className="font-sans text-xs sm:text-sm font-medium text-white">Magic Board</span>
               </button>
             </div>
 
@@ -191,10 +191,10 @@ export default function PhotoboothPage() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 20, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-6 bottom-20 w-[260px] bg-[#140e11]/95 backdrop-blur-md border border-white/20 rounded-[16px] p-4 flex flex-col gap-4 z-40 shadow-2xl"
+                  className="absolute left-4 bottom-36 lg:bottom-20 w-[240px] sm:w-[260px] bg-[#140e11]/95 backdrop-blur-md border border-white/20 rounded-[16px] p-4 flex flex-col gap-3 z-40 shadow-2xl"
                 >
                   <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <h3 className="font-serif text-[16px] text-white flex items-center gap-2">
+                    <h3 className="font-serif text-[15px] text-white flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-[#ca498c]" /> Stickers & Designs
                     </h3>
                     <button
@@ -204,16 +204,16 @@ export default function PhotoboothPage() {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-[11px] text-white/50">Tip: Double-click any sticker on the board to delete it!</p>
+                  <p className="text-[10px] text-white/50">Tip: Double-click any sticker to delete it!</p>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider text-[#ca498c] font-bold">Decorations</span>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-1.5">
                       {["🌸", "💖", "🎀", "✨", "🧸", "🌷", "⭐", "🦋"].map((emoji, i) => (
                         <button
                           key={i}
                           onClick={() => handleAddSticker(emoji, "emoji")}
-                          className="h-10 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[8px] text-lg flex items-center justify-center transition-colors cursor-pointer"
+                          className="h-9 bg-white/5 hover:bg-white/10 border border-white/10 rounded-[8px] text-base flex items-center justify-center transition-colors cursor-pointer"
                         >
                           {emoji}
                         </button>
@@ -221,7 +221,7 @@ export default function PhotoboothPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] uppercase tracking-wider text-[#ca498c] font-bold">Badges</span>
                     <button
                       onClick={() => handleAddSticker("Yuri's Craft 🌸", "badge")}
@@ -268,7 +268,7 @@ export default function PhotoboothPage() {
                   className={`relative w-full h-full flex items-center justify-center select-none ${
                     stk.type === "badge" 
                       ? "bg-[#140e11]/95 border border-[#ca498c]/60 rounded-[10px] px-3 shadow-lg text-xs font-medium text-white w-full h-full" 
-                      : "text-5xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] w-full h-full flex items-center justify-center"
+                      : "text-4xl sm:text-5xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] w-full h-full flex items-center justify-center"
                   }`}
                 >
                   {stk.content}
@@ -276,60 +276,80 @@ export default function PhotoboothPage() {
               </Rnd>
             ))}
 
-            {/* ── macOS Style Resizable Camera Window (Pure Video Frame) ── */}
-            <Rnd
-              default={{
-                x: window.innerWidth > 1024 ? 320 : 20,
-                y: 20,
-                width: 620,
-                height: 480,
-              }}
-              minWidth={320}
-              minHeight={240}
-              bounds="parent"
-              dragHandleClassName="macos-window-header"
-              className="bg-[#140e11] border border-white/20 rounded-[16px] shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden z-20"
-            >
-              {/* macOS Header Bar */}
-              <div className="macos-window-header h-10 bg-[#1e1418] border-b border-white/10 flex items-center px-4 cursor-move flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+            {/* ── Responsive Camera Window (MacStyle on Desktop, Auto-Scaled Centered Box on Mobile) ── */}
+            {isMobile ? (
+              <div className="relative w-full max-w-[360px] aspect-[4/3] mx-auto my-auto bg-[#140e11] border border-white/20 rounded-[16px] shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden z-20">
+                <div className="h-8 bg-[#1e1418] border-b border-white/10 flex items-center px-3 flex-shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+                  </div>
+                  <span className="mx-auto text-[11px] font-medium text-white/60 tracking-wider">
+                    Photo Booth
+                  </span>
                 </div>
-                <span className="mx-auto text-xs font-medium text-white/60 tracking-wider">
-                  Photo Booth
-                </span>
+                <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                </div>
               </div>
+            ) : (
+              <Rnd
+                default={{
+                  x: 340,
+                  y: 40,
+                  width: 620,
+                  height: 480,
+                }}
+                minWidth={300}
+                minHeight={220}
+                bounds="parent"
+                dragHandleClassName="macos-window-header"
+                className="bg-[#140e11] border border-white/20 rounded-[16px] shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden z-20"
+              >
+                <div className="macos-window-header h-10 bg-[#1e1418] border-b border-white/10 flex items-center px-4 cursor-move flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                  </div>
+                  <span className="mx-auto text-xs font-medium text-white/60 tracking-wider">
+                    Photo Booth
+                  </span>
+                </div>
 
-              {/* Pure Video Stream Area */}
-              <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover scale-x-[-1]"
-                />
-              </div>
-            </Rnd>
+                <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                </div>
+              </Rnd>
+            )}
 
-            {/* ── Floating Bottom-Right Shutter & Filmstrip Control Deck ── */}
-            <div className="absolute right-6 bottom-6 bg-[#140e11]/90 backdrop-blur-md border border-white/20 rounded-[20px] px-5 py-3 shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex items-center gap-5 z-40">
-              {/* Filmstrip thumbnails (Scrollbar hidden, mouse scroll supported) */}
-              <div className="flex items-center gap-2 overflow-x-auto max-w-[280px] py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {/* ── Floating Bottom Shutter & Filmstrip Control Deck (Fully Responsive) ── */}
+            <div className="absolute left-1/2 -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-6 bottom-4 lg:bottom-6 bg-[#140e11]/90 backdrop-blur-md border border-white/20 rounded-[20px] px-3 sm:px-5 py-2.5 sm:py-3 shadow-[0_15px_40px_rgba(0,0,0,0.7)] flex items-center gap-3 sm:gap-5 z-40 max-w-[95vw]">
+              <div className="flex items-center gap-2 overflow-x-auto max-w-[180px] sm:max-w-[280px] py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {photos.length === 0 ? (
-                  <span className="text-xs text-white/40 italic font-sans px-2">No snapshots yet</span>
+                  <span className="text-xs text-white/40 italic font-sans px-2">No snapshots</span>
                 ) : (
                   photos.map((src, i) => (
-                    <div key={i} className="relative group w-12 h-12 rounded-[8px] overflow-hidden border border-white/20 flex-shrink-0 shadow-md">
+                    <div key={i} className="relative group w-10 h-10 sm:w-12 sm:h-12 rounded-[8px] overflow-hidden border border-white/20 flex-shrink-0 shadow-md">
                       <img src={src} alt="Snapshot" className="w-full h-full object-cover" />
                       
-                      {/* Hover Overlay Actions: Download & Delete */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 transition-opacity">
                         <a
                           href={src}
-                          download={`yuris-craft-photobooth-${i + 1}.png`}
+                          download={`fazzyu-creations-photobooth-${i + 1}.png`}
                           className="text-white hover:text-[#ca498c] transition-colors"
                           title="Download photo"
                         >
@@ -348,14 +368,13 @@ export default function PhotoboothPage() {
                 )}
               </div>
 
-              {/* Shutter Button */}
               <button
                 onClick={handleCapture}
                 aria-label="Take picture"
-                className="w-14 h-14 rounded-full bg-[#ca498c] hover:bg-[#b83d7a] transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center shadow-[0_0_25px_rgba(209,126,165,0.6)] cursor-pointer flex-shrink-0"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#ca498c] hover:bg-[#b83d7a] transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center shadow-[0_0_25px_rgba(209,126,165,0.6)] cursor-pointer flex-shrink-0"
               >
-                <div className="w-10 h-10 rounded-full border-2 border-white/80 flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-white/80 flex items-center justify-center">
+                  <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
               </button>
             </div>

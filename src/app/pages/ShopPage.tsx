@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { SlidersHorizontal, ChevronDown, ArrowRight } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, ArrowRight, Facebook } from "lucide-react";
 import { useAppData, type Order } from "@/app/context/AppDataContext";
 
 import imgFallback from "@/imports/ShopPage/bd0d35e3b33ca2ee7e667baf374d09ada53d69bc.png";
@@ -23,7 +23,6 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState("Popular");
   const [showSort, setShowSort] = useState(false);
 
-  // Index 0 of o.images is always the primary cover photo set via the heart button
   const shopItems: ShopItem[] = orders.map((o) => ({
     id: o.id,
     name: o.title,
@@ -159,6 +158,12 @@ export default function ShopPage() {
 
 function ProductCard({ item, index }: { item: ShopItem; index: number }) {
   const isAvailable = item.status === "Available";
+  
+  // Encodes a pre-filled message containing the item name, price, and exact page URL link
+  const fbMessage = encodeURIComponent(
+    `Hello! I would like to inquire about this item:\n\n• Product: ${item.name}\n• Price: ₱${item.price}\n• Link: ${window.location.origin}/shop/${encodeURIComponent(item.id)}`
+  );
+  const messengerUrl = `https://m.me/fazzyuu?text=${fbMessage}`;
 
   return (
     <motion.div
@@ -168,49 +173,54 @@ function ProductCard({ item, index }: { item: ShopItem; index: number }) {
       transition={{ duration: 0.35, delay: index * 0.05 }}
       layout
       whileHover={{ y: -4, scale: 1.02 }}
+      className="flex flex-col rounded-[16px] overflow-hidden bg-bg-surface border border-border-accent/20 hover:border-border-accent/50 transition-all duration-200 shadow-[0_2px_16px_rgba(0,0,0,0.4)]"
     >
       <Link to={`/shop/${encodeURIComponent(item.id)}`} className="block group">
-        <div className="rounded-[16px] overflow-hidden bg-bg-surface border border-border-accent/20 group-hover:border-border-accent/50 transition-all duration-200 shadow-[0_2px_16px_rgba(0,0,0,0.4)]">
-          {/* Image 4:3 */}
-          <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            {/* Status pill */}
-            <div className="absolute top-3 right-3">
-              <span
-                className={`px-2.5 py-0.5 rounded-full font-sans text-[11px] font-medium ${
-                  isAvailable
-                    ? "bg-status-bg text-status-text"
-                    : "bg-red-900/70 text-red-200"
-                }`}
-              >
-                {item.status}
-              </span>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="px-4 py-3 flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-sans text-[13px] font-medium text-text-primary truncate leading-snug">
-                {item.name}
-              </p>
-              <p className="font-serif text-[1.2rem] text-accent-highlight leading-tight mt-0.5">
-                ₱{item.price}
-              </p>
-            </div>
-            <motion.div
-              whileHover={{ x: 3 }}
-              className="flex-shrink-0 text-text-muted group-hover:text-brand-pink transition-colors"
+        <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute top-3 right-3">
+            <span
+              className={`px-2.5 py-0.5 rounded-full font-sans text-[11px] font-medium ${
+                isAvailable
+                  ? "bg-status-bg text-status-text"
+                  : "bg-red-900/70 text-red-200"
+              }`}
             >
-              <ArrowRight className="w-4 h-4" />
-            </motion.div>
+              {item.status}
+            </span>
+          </div>
+        </div>
+
+        <div className="px-4 pt-3 pb-1 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-sans text-[13px] font-medium text-text-primary truncate leading-snug group-hover:text-brand-pink transition-colors">
+              {item.name}
+            </p>
+            <p className="font-serif text-[1.2rem] text-accent-highlight leading-tight mt-0.5">
+              ₱{item.price}
+            </p>
+          </div>
+          <div className="flex-shrink-0 text-text-muted group-hover:text-brand-pink transition-colors">
+            <ArrowRight className="w-4 h-4" />
           </div>
         </div>
       </Link>
+
+      <div className="px-4 pb-4 pt-2 mt-auto">
+        <a
+          href={messengerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 bg-[#ca498c] hover:bg-[#b83d7a] text-white text-[13px] font-medium py-2 px-3 rounded-full transition-colors cursor-pointer shadow-md"
+        >
+          <Facebook className="w-4 h-4" />
+          Inquire on Facebook
+        </a>
+      </div>
     </motion.div>
   );
 }

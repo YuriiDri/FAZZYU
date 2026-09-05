@@ -17,7 +17,6 @@ export default function ItemPage() {
 
   const id = rawId ? decodeURIComponent(rawId) : "";
 
-  // Robust ID lookup: handles string coercion, encoded URLs, and title fallbacks
   const order = orders.find(
     (o) =>
       String(o.id) === String(id) ||
@@ -26,11 +25,8 @@ export default function ItemPage() {
   );
 
   const images = order?.images && order.images.length > 0 ? order.images : fallbackImages;
-
-  // Set the default preview to index 0 (the cover image set by the heart button)
   const [mainIndex, setMainIndex] = useState(0);
 
-  // Reset main index to 0 whenever the selected product changes
   useEffect(() => {
     setMainIndex(0);
   }, [id]);
@@ -59,6 +55,12 @@ export default function ItemPage() {
 
   const isAvailable = order.status === "Available";
 
+  // Formats the automated pre-filled text query string for Messenger
+  const fbMessage = encodeURIComponent(
+    `Hello! I would like to inquire about this item:\n\n• Product: ${order.title}\n• Price: ₱${order.price}\n• Link: ${window.location.href}`
+  );
+  const messengerUrl = `https://m.me/fazzyuu?text=${fbMessage}`;
+
   return (
     <div className="bg-bg-base min-h-screen text-text-primary font-sans">
       <div className="page-container py-8 lg:py-12">
@@ -84,7 +86,6 @@ export default function ItemPage() {
             transition={{ duration: 0.5 }}
             className="flex gap-3"
           >
-            {/* Thumbnail rail — 72px wide */}
             <div className="flex flex-col gap-2 w-[72px] flex-shrink-0">
               {images.map((img, i) => (
                 <button
@@ -102,7 +103,6 @@ export default function ItemPage() {
               ))}
             </div>
 
-            {/* Main Image — 4:5 */}
             <div className="flex-1 relative rounded-[16px] overflow-hidden" style={{ aspectRatio: "4/5" }}>
               <AnimatePresence mode="wait">
                 <motion.img
@@ -117,7 +117,6 @@ export default function ItemPage() {
                 />
               </AnimatePresence>
 
-              {/* Overlay arrows */}
               <button
                 onClick={prev}
                 aria-label="Previous image"
@@ -133,7 +132,6 @@ export default function ItemPage() {
                 <ChevronRight className="w-4 h-4 text-white" />
               </button>
 
-              {/* Dot indicators */}
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                 {images.map((_, i) => (
                   <button
@@ -155,7 +153,6 @@ export default function ItemPage() {
             transition={{ duration: 0.5, delay: 0.08 }}
             className="flex flex-col gap-5"
           >
-            {/* Status */}
             <div>
               <span
                 className={`inline-block px-3 py-0.5 rounded-full font-sans text-[11px] font-medium ${
@@ -168,25 +165,23 @@ export default function ItemPage() {
               </span>
             </div>
 
-            {/* Name */}
             <h1 className="font-serif leading-tight text-white" style={{ fontSize: "clamp(1.75rem, 2.5vw + 0.5rem, 2.75rem)" }}>
               {order.title}
             </h1>
 
-            {/* Price */}
             <p className="font-serif text-[2rem] text-accent-highlight leading-none">
               ₱{order.price}
             </p>
 
-            {/* Description */}
             <p className="font-sans text-sm text-text-muted leading-relaxed">
               {order.description || "Handcrafted wire creation made with love."}
             </p>
 
             {/* Facebook CTA */}
             <motion.a
-              href="#"
-              onClick={(e) => e.preventDefault()}
+              href={messengerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               className="mt-2 flex items-center justify-center gap-3 bg-brand-pink-deep text-white rounded-full py-3.5 font-sans font-medium text-[15px] cursor-pointer shadow-[0_4px_24px_rgba(212,106,147,0.35)] hover:shadow-[0_6px_36px_rgba(212,106,147,0.5)] transition-shadow"
