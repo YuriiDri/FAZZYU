@@ -1,12 +1,7 @@
 import { useState, useCallback } from "react";
 import { Link } from "react-router";
-<<<<<<< HEAD
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, ChevronDown, Facebook, Mail } from "lucide-react";
-=======
-import { motion } from "motion/react";
-import { ChevronLeft, ChevronRight, Facebook, Mail } from "lucide-react";
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
 import { toast } from "sonner";
 import { Card } from "@/app/components/Card";
 import { useAppData } from "@/app/context/AppDataContext";
@@ -149,10 +144,6 @@ function HeroSection() {
 function GallerySection() {
   const { galleryImages, getPrimaryImageIndex } = useAppData();
 
-<<<<<<< HEAD
-=======
-  // Reorder slides array so that the primary/hearted image is placed first (index 0)
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
   const rawSlides = galleryImages.length > 0
     ? galleryImages.map((img) => img.src)
     : FALLBACK_SLIDES;
@@ -240,7 +231,6 @@ function GallerySection() {
 
 /* ── Delivery ────────────────────────────────────────────── */
 function DeliverySection() {
-<<<<<<< HEAD
   const [isOpen, setIsOpen] = useState(false);
 
   const deliveryLocations = [
@@ -251,8 +241,6 @@ function DeliverySection() {
     "CAA (Saging to Balikatan)",
   ];
 
-=======
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
   return (
     <section className="py-16 lg:py-24">
       <div className="page-container">
@@ -277,7 +265,6 @@ function DeliverySection() {
                 <p className="font-sans text-base text-text-muted leading-relaxed max-w-[400px]">
                   Within selected areas of Las Piñas — Pulanglupa Uno, Naga Road Area
                 </p>
-<<<<<<< HEAD
 
                 {/* Free Delivery Locations Dropdown */}
                 <div className="mt-2 w-full max-w-[420px]">
@@ -315,8 +302,6 @@ function DeliverySection() {
                     )}
                   </AnimatePresence>
                 </div>
-=======
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
               </div>
 
               <div className="relative rounded-[12px] overflow-hidden border border-border-accent/20" style={{ aspectRatio: "4/3" }}>
@@ -368,14 +353,9 @@ function ContactSection() {
 
               <div className="flex flex-col gap-5 mt-2">
                 <a
-<<<<<<< HEAD
                   href="https://www.facebook.com/fazzyuu"
                   target="_blank"
                   rel="noopener noreferrer"
-=======
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
                   className="flex items-center gap-4 group"
                 >
                   <div className="w-11 h-11 rounded-[10px] bg-brand-pink-deep flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">

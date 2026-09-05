@@ -8,10 +8,7 @@ import AdminLayout from "./layouts/AdminLayout";
 
 import HomePage from "./pages/HomePage";
 import ShopPage from "./pages/ShopPage";
-<<<<<<< HEAD
 import PhotoboothPage from "./pages/PhotoboothPage";
-=======
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
 import ItemPage from "./pages/ItemPage";
 import GalleryPage from "./pages/GalleryPage";
 import LoginPage from "./pages/LoginPage";
@@ -62,10 +59,7 @@ export default function App() {
           <Route path="/" element={<WithNav><HomePage /></WithNav>} />
           <Route path="/shop" element={<WithNav><ShopPage /></WithNav>} />
           <Route path="/shop/:id" element={<WithNav><ItemPage /></WithNav>} />
-<<<<<<< HEAD
           <Route path="/photobooth" element={<WithNav><PhotoboothPage /></WithNav>} />
-=======
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
           <Route path="/gallery" element={<WithNav><GalleryPage /></WithNav>} />
 
           {/* Login standalone */}

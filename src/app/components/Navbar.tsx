@@ -9,10 +9,7 @@ import imgLogo from "@/imports/HomePage/b34d701fd1ceed4106f0f96c9254084af23d9951
 const NAV_LINKS = [
   { label: "Home", path: "/" },
   { label: "Shop", path: "/shop" },
-<<<<<<< HEAD
   { label: "Photobooth", path: "/photobooth" },
-=======
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
 ];
 
 export default function Navbar() {
@@ -117,11 +114,7 @@ export default function Navbar() {
             <button
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu"
-<<<<<<< HEAD
               className="md:hidden text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors p-1 cursor-pointer"
-=======
-              className="md:hidden text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors p-1"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -142,11 +135,7 @@ export default function Navbar() {
                 setSearchOpen(false);
                 setQuery("");
               }}
-<<<<<<< HEAD
               className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
-=======
-              className="absolute inset-0 bg-black/80 backdrop-blur-md"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
             />
 
             {/* Search Input Box */}
@@ -173,11 +162,7 @@ export default function Navbar() {
                     setSearchOpen(false);
                     setQuery("");
                   }}
-<<<<<<< HEAD
                   className="text-white/60 hover:text-white transition-colors p-1 cursor-pointer"
-=======
-                  className="text-white/60 hover:text-white transition-colors p-1"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -235,11 +220,7 @@ export default function Navbar() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-<<<<<<< HEAD
               className="fixed inset-0 bg-black/70 z-[60] md:hidden cursor-pointer"
-=======
-              className="fixed inset-0 bg-black/70 z-[60] md:hidden"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
               onClick={() => setDrawerOpen(false)}
             />
             <motion.div
@@ -253,11 +234,7 @@ export default function Navbar() {
                 <img src={imgLogo} alt="Logo" className="h-10 w-auto" />
                 <button
                   onClick={() => setDrawerOpen(false)}
-<<<<<<< HEAD
                   className="text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors cursor-pointer"
-=======
-                  className="text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -286,11 +263,7 @@ export default function Navbar() {
                     setDrawerOpen(false);
                     setSearchOpen(true);
                   }}
-<<<<<<< HEAD
                   className="text-[#F5F0F0] cursor-pointer hover:text-[#E8A0BE] transition-colors"
-=======
-                  className="text-[#F5F0F0]"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
                   aria-label="Search"
                 >
                   <Search className="w-5 h-5" />
@@ -298,11 +271,7 @@ export default function Navbar() {
                 <Link
                   to="/login"
                   onClick={() => setDrawerOpen(false)}
-<<<<<<< HEAD
                   className="text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors"
-=======
-                  className="text-[#F5F0F0]"
->>>>>>> e63a3699c0a27185ff16bb9f55e6d00f0af4c6f4
                   aria-label="Admin login"
                 >
                   <User className="w-5 h-5" />
