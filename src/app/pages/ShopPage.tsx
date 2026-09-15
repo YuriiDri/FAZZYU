@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { SlidersHorizontal, ChevronDown, ArrowRight, Facebook } from "lucide-react";
+import { SlidersHorizontal, ChevronDown, ArrowRight, Facebook, Sparkles } from "lucide-react";
 import { useAppData, type Order } from "@/app/context/AppDataContext";
 
 import imgFallback from "@/imports/ShopPage/bd0d35e3b33ca2ee7e667baf374d09ada53d69bc.png";
@@ -43,7 +43,7 @@ export default function ShopPage() {
     });
 
   return (
-    <div className="bg-bg-base min-h-screen text-text-primary font-sans">
+    <div className="bg-bg-base min-h-screen text-text-primary font-sans relative">
       <div className="page-container py-10 lg:py-14">
         {/* Header */}
         <motion.div
@@ -98,7 +98,7 @@ export default function ShopPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-bg-surface border border-border-accent/30 rounded-[10px] overflow-hidden z-30"
+                    className="absolute top-full left-0 right-0 mt-1 bg-bg-surface border border-border-accent/30 rounded-[10px] overflow-hidden z-30 shadow-xl"
                   >
                     {SORT_OPTIONS.map((opt) => (
                       <button
@@ -152,6 +152,17 @@ export default function ShopPage() {
       <footer className="border-t border-border-accent/10 py-4 text-center mt-8">
         <p className="font-sans text-sm text-text-muted">© 2026 All rights reserved.</p>
       </footer>
+
+      {/* Floating Customize Yours Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Link
+          to="/shop/customize"
+          className="flex items-center gap-2.5 px-6 py-3.5 bg-[#ca498c] hover:bg-[#b83d7a] text-white rounded-full shadow-[0_6px_30px_rgba(209,126,165,0.6)] font-sans font-medium text-sm transition-all transform hover:scale-105 active:scale-95 cursor-pointer border border-white/20"
+        >
+          <Sparkles className="w-4 h-4 text-white animate-pulse" />
+          <span>Customize Yours</span>
+        </Link>
+      </div>
     </div>
   );
 }

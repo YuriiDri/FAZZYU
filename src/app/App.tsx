@@ -8,6 +8,7 @@ import AdminLayout from "./layouts/AdminLayout";
 
 import HomePage from "./pages/HomePage";
 import ShopPage from "./pages/ShopPage";
+import CustomOrderPage from "./pages/CustomOrderPage";
 import PhotoboothPage from "./pages/PhotoboothPage";
 import ItemPage from "./pages/ItemPage";
 import GalleryPage from "./pages/GalleryPage";
@@ -58,6 +59,7 @@ export default function App() {
           {/* Customer routes */}
           <Route path="/" element={<WithNav><HomePage /></WithNav>} />
           <Route path="/shop" element={<WithNav><ShopPage /></WithNav>} />
+          <Route path="/shop/customize" element={<WithNav><CustomOrderPage /></WithNav>} />
           <Route path="/shop/:id" element={<WithNav><ItemPage /></WithNav>} />
           <Route path="/photobooth" element={<WithNav><PhotoboothPage /></WithNav>} />
           <Route path="/gallery" element={<WithNav><GalleryPage /></WithNav>} />
