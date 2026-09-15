@@ -8,10 +8,6 @@ import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
 const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
 const CATEGORY_OPTIONS = ["Bouquet", "Themed", "Dolls", "Craft"];
 
-function generateId() {
-  return `#YC-${Math.floor(1000 + Math.random() * 9000)}`;
-}
-
 export default function AdminAddOrderPage() {
   const { addOrder } = useAppData();
   const navigate = useNavigate();
@@ -35,26 +31,26 @@ export default function AdminAddOrderPage() {
     });
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim() || !price) {
       toast.error("Please fill in Order Title and Price.");
       return;
     }
-    addOrder({
-      id: `prod-${Date.now()}`, // Internal product ID only
+    await addOrder({
+      id: `#YC-${Math.floor(1000 + Math.random() * 9000)}`,
       title,
       price: Number(price),
       category,
       status: status as Order["status"],
       description,
       definition: "",
-      customer: "", // Blank customer initially
+      customer: "General Customer", // Default customer name so it maps correctly to the order list view
       payment: "GCASH",
-      paymentDate: "",
+      paymentDate: new Date().toLocaleDateString(),
       notes: "",
       images,
     });
-    toast.success("Product created successfully.");
+    toast.success("Order created successfully.");
     navigate("/admin/orders");
   }
 
@@ -71,13 +67,13 @@ export default function AdminAddOrderPage() {
       <div className="flex gap-3 justify-end mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="h-[56px] px-8 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[16px] text-white/74 hover:border-white/40 transition-colors"
+          className="h-[56px] px-8 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[16px] text-white/74 hover:border-white/40 transition-colors cursor-pointer"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
-          className="h-[56px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors"
+          className="h-[56px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors cursor-pointer"
         >
           + Add New Order
         </button>
@@ -151,7 +147,7 @@ export default function AdminAddOrderPage() {
           {/* Upload button */}
           <button
             onClick={() => fileRef.current?.click()}
-            className="w-[166px] h-[177px] bg-[#141414] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors"
+            className="w-[166px] h-[177px] bg-[#141414] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer"
           >
             <Upload className="w-10 h-10 text-white/60" />
             <span className="font-['Roboto',sans-serif] text-[12px] text-white/75">Click to upload image</span>
@@ -164,7 +160,7 @@ export default function AdminAddOrderPage() {
               <img src={src} alt="" className="w-full h-full object-cover" />
               <button
                 onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
-                className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center hover:bg-[#ca498c]/80 transition-colors"
+                className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center hover:bg-[#ca498c]/80 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4 text-white" />
               </button>
@@ -175,4 +171,3 @@ export default function AdminAddOrderPage() {
     </div>
   );
 }
-
