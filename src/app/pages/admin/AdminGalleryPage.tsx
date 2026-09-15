@@ -12,22 +12,23 @@ export default function AdminGalleryPage() {
     if (!files) return;
     Array.from(files).forEach((file) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         if (e.target?.result) {
-          addGalleryImage({
-            id: `gal-${Date.now()}-${Math.random()}`,
-            src: e.target.result as string,
+          const base64String = e.target.result as string;
+          await addGalleryImage({
+            id: `gal-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            src: base64String,
           });
+          toast.success("Photo uploaded to cloud gallery.");
         }
       };
       reader.readAsDataURL(file);
     });
-    toast.success("Photos added.");
   }
 
-  function handleDelete(id: string) {
-    deleteGalleryImage(id);
-    toast.success("Photo removed.");
+  async function handleDelete(id: string) {
+    await deleteGalleryImage(id);
+    toast.success("Photo removed from cloud gallery.");
   }
 
   return (
@@ -38,7 +39,7 @@ export default function AdminGalleryPage() {
             Gallery
           </h1>
           <p className="font-['Roboto',sans-serif] text-[18px] text-white/70">
-            Manage photos for your store gallery.
+            Manage photos for your store gallery. Syncs globally.
           </p>
         </div>
         <button
@@ -72,11 +73,11 @@ export default function AdminGalleryPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.25 }}
-              className="relative group rounded-[20px] overflow-hidden aspect-[4/5]"
+              className="relative group rounded-[20px] overflow-hidden aspect-[4/5] bg-black/40 border border-white/10"
             >
               <img src={img.src} alt="" className="w-full h-full object-cover" />
 
-              {/* Overlay controls - Trash button only */}
+              {/* Overlay controls - Trash button */}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-end p-3">
                 <button
                   onClick={() => handleDelete(img.id)}
