@@ -1,8 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 import imgItemMain from "@/imports/ItemPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
 import imgExampleImage from "@/imports/ShopPage/bd0d35e3b33ca2ee7e667baf374d09ada53d69bc.png";
 import imgGallerySample from "@/imports/GalleryPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export type Product = {
   id: number;
@@ -58,9 +63,9 @@ interface AppDataContextValue {
   setPrimaryImage: (productId: number, imgIndex: number) => void;
 
   orders: Order[];
-  addOrder: (o: Order) => void;
-  updateOrder: (id: string, patch: Partial<Order>) => void;
-  deleteOrder: (id: string) => void;
+  addOrder: (o: Order) => Promise<void>;
+  updateOrder: (id: string, patch: Partial<Order>) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
 
   inventory: InventoryItem[];
   addInventoryItem: (item: InventoryItem) => void;
@@ -249,13 +254,52 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const [products] = useState<Product[]>(SEED_PRODUCTS);
   const [imageOrders, setImageOrders] = useState<ImageOrders>(stored?.imageOrders ?? {});
-  const [orders, setOrders] = useState<Order[]>(stored?.orders ?? SEED_ORDERS);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>(stored?.inventory ?? SEED_INVENTORY);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>(stored?.galleryImages ?? SEED_GALLERY);
 
+  // Fetch orders from Supabase on mount & handle real-time sync
   useEffect(() => {
-    saveToStorage({ imageOrders, orders, inventory, galleryImages });
-  }, [imageOrders, orders, inventory, galleryImages]);
+    async function fetchOrders() {
+      const { data, error } = await supabase.from("orders").select("*");
+      if (!error && data && data.length > 0) {
+        // Map database column names back to frontend camelCase keys if needed
+        const formattedOrders: Order[] = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          category: item.category,
+          status: item.status,
+          description: item.description,
+          definition: item.definition,
+          customer: item.customer,
+          payment: item.payment,
+          paymentDate: item.payment_date,
+          notes: item.notes,
+          images: item.images || [],
+        }));
+        setOrders(formattedOrders);
+      } else {
+        setOrders(stored?.orders ?? SEED_ORDERS);
+      }
+    }
+    fetchOrders();
+
+    const channel = supabase
+      .channel("public:orders")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        fetchOrders();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    saveToStorage({ imageOrders, inventory, galleryImages });
+  }, [imageOrders, inventory, galleryImages]);
 
   function getPrimaryImageIndex(productId: number): number {
     const order = imageOrders[productId];
@@ -270,16 +314,53 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  function addOrder(o: Order) {
-    setOrders((prev) => [o, ...prev]);
+  async function addOrder(o: Order) {
+    const { error } = await supabase.from("orders").insert([
+      {
+        id: o.id,
+        title: o.title,
+        price: o.price,
+        category: o.category,
+        status: o.status,
+        description: o.description,
+        definition: o.definition,
+        customer: o.customer,
+        payment: o.payment,
+        payment_date: o.paymentDate,
+        notes: o.notes,
+        images: o.images,
+      },
+    ]);
+    if (!error) {
+      setOrders((prev) => [o, ...prev]);
+    }
   }
 
-  function updateOrder(id: string, patch: Partial<Order>) {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  async function updateOrder(id: string, patch: Partial<Order>) {
+    const dbPatch: Record<string, any> = {};
+    if (patch.title !== undefined) dbPatch.title = patch.title;
+    if (patch.price !== undefined) dbPatch.price = patch.price;
+    if (patch.category !== undefined) dbPatch.category = patch.category;
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.description !== undefined) dbPatch.description = patch.description;
+    if (patch.definition !== undefined) dbPatch.definition = patch.definition;
+    if (patch.customer !== undefined) dbPatch.customer = patch.customer;
+    if (patch.payment !== undefined) dbPatch.payment = patch.payment;
+    if (patch.paymentDate !== undefined) dbPatch.payment_date = patch.paymentDate;
+    if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+    if (patch.images !== undefined) dbPatch.images = patch.images;
+
+    const { error } = await supabase.from("orders").update(dbPatch).match({ id });
+    if (!error) {
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+    }
   }
 
-  function deleteOrder(id: string) {
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+  async function deleteOrder(id: string) {
+    const { error } = await supabase.from("orders").delete().match({ id });
+    if (!error) {
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+    }
   }
 
   function addInventoryItem(item: InventoryItem) {
