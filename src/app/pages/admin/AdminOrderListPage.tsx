@@ -16,16 +16,17 @@ export default function AdminOrderListPage() {
   const [paymentFilter, setPaymentFilter] = useState("All Payment");
   const [page, setPage] = useState(1);
 
-// In AdminOrderListPage.tsx, filter out items without customer orders
+  // Order List should ONLY display client-submitted orders (e.g., #YC-CUST-), 
+  // excluding general admin catalog items/products.
   const filtered = orders.filter((o) => {
-    const isCustomerOrder = Boolean(o.customer && o.customer.trim());
+    const isCustomerSubmission = o.id.startsWith("#YC-CUST-") || (o.customer && o.customer !== "General Customer");
     const matchSearch =
       !search ||
       o.id.toLowerCase().includes(search.toLowerCase()) ||
       o.customer.toLowerCase().includes(search.toLowerCase()) ||
       o.title.toLowerCase().includes(search.toLowerCase());
     const matchPayment = paymentFilter === "All Payment" || o.payment === paymentFilter;
-    return isCustomerOrder && matchSearch && matchPayment;
+    return isCustomerSubmission && matchSearch && matchPayment;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
@@ -80,7 +81,7 @@ export default function AdminOrderListPage() {
         currentPage={page}
         totalPages={totalPages}
         onPageChange={setPage}
-        emptyMessage="No orders found."
+        emptyMessage="No customer orders found."
       />
     </div>
   );

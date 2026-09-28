@@ -1,25 +1,49 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, Upload, X, Sparkles, Send } from "lucide-react";
+import { ArrowLeft, Upload, X, Sparkles, Send, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAppData } from "@/app/context/AppDataContext";
 
-// Sample thumbnail imports for flowers (using existing gallery/item assets as visual references)
-import imgLily from "@/imports/ItemPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
-import imgRose from "@/imports/ShopPage/bd0d35e3b33ca2ee7e667baf374d09ada53d69bc.png";
-import imgSunflower from "@/imports/GalleryPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
+// Temporary fallback mappings using existing verified assets in your project
+import imgPlaceholder from "@/imports/ItemPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
 
 const CATEGORIES = ["Bouquet", "Themed", "Dolls", "Craft"];
 
 const FLOWER_OPTIONS = [
-  { name: "Lily", image: imgLily },
-  { name: "Rose", image: imgRose },
-  { name: "Sunflower", image: imgSunflower },
-  { name: "Tulip", image: imgLily },
-  { name: "Daisy", image: imgRose },
-  { name: "Lavender", image: imgSunflower },
-  { name: "Cherry Blossom", image: imgLily },
+  { name: "Rosy", image: imgPlaceholder },
+  { name: "Rose", image: imgPlaceholder },
+  { name: "Spider Lily", image: imgPlaceholder },
+  { name: "Tulip V1", image: imgPlaceholder },
+  { name: "Tulip V2", image: imgPlaceholder },
+  { name: "Carnation", image: imgPlaceholder },
+  { name: "Hibiscus", image: imgPlaceholder },
+  { name: "Lily of Valley", image: imgPlaceholder },
+  { name: "Bunny", image: imgPlaceholder },
+  { name: "Baby's Breath", image: imgPlaceholder },
+  { name: "Heart", image: imgPlaceholder },
+  { name: "Hydrangea", image: imgPlaceholder },
+  { name: "Mini Peony", image: imgPlaceholder },
+  { name: "Mini Sunflower", image: imgPlaceholder },
+  { name: "Puff Flower", image: imgPlaceholder },
+  { name: "Mini Rosy", image: imgPlaceholder },
+  { name: "Mini Tulip", image: imgPlaceholder },
+  { name: "Forget Me Not", image: imgPlaceholder },
+  { name: "Lavender", image: imgPlaceholder },
+  { name: "Mini Daisy", image: imgPlaceholder },
+  { name: "Stargazer", image: imgPlaceholder },
+  { name: "Mini Lotus", image: imgPlaceholder },
+  { name: "Sundrop", image: imgPlaceholder },
+  { name: "Lily V2", image: imgPlaceholder },
+  { name: "Anthurium", image: imgPlaceholder },
+  { name: "Daisy V1", image: imgPlaceholder },
+  { name: "Cherry Blossom", image: imgPlaceholder },
+  { name: "Butterfly", image: imgPlaceholder },
+  { name: "Daffodils", image: imgPlaceholder },
+  { name: "Spiral", image: imgPlaceholder },
+  { name: "Leaf 1", image: imgPlaceholder },
+  { name: "Leaf 2", image: imgPlaceholder },
+  { name: "Leaf 3", image: imgPlaceholder },
 ];
 
 const COLOR_OPTIONS = [
@@ -121,6 +145,16 @@ export default function CustomOrderPage() {
 
   return (
     <div className="bg-[#1E1518] min-h-screen text-white font-sans selection:bg-[#ca498c] selection:text-white">
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       <div className="max-w-3xl mx-auto px-4 py-10 lg:py-14">
         <button
           onClick={() => navigate(-1)}
@@ -168,7 +202,7 @@ export default function CustomOrderPage() {
               {/* Flowers with Sample Preview Cards */}
               <div>
                 <label className="block text-sm font-medium text-white/80 mb-3">Select Flower Types (Click to select multiple)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[420px] overflow-y-auto pr-1 no-scrollbar">
                   {FLOWER_OPTIONS.map((flower) => {
                     const isSelected = selectedFlowers.includes(flower.name);
                     return (
@@ -185,7 +219,7 @@ export default function CustomOrderPage() {
                         <div className="w-16 h-16 rounded-[10px] overflow-hidden mb-2 border border-white/20">
                           <img src={flower.image} alt={flower.name} className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-xs font-medium text-white">{flower.name}</span>
+                        <span className="text-xs font-medium text-white leading-tight">{flower.name}</span>
                         <span className="text-[10px] text-[#ca498c] mt-0.5">{isSelected ? "Selected ✓" : "Tap to add"}</span>
                       </button>
                     );
@@ -378,12 +412,23 @@ export default function CustomOrderPage() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full h-14 bg-[#ca498c] hover:bg-[#b83d7a] text-white font-semibold rounded-full shadow-[0_4px_25px_rgba(209,126,165,0.5)] transition-all flex items-center justify-center gap-2 cursor-pointer text-base"
-          >
-            <Send className="w-5 h-5" /> Submit Custom Order & Send to Messenger
-          </button>
+          {/* Submit Button & Important Note Wrapper */}
+          <div className="space-y-3">
+            <button
+              type="submit"
+              className="w-full h-14 bg-[#ca498c] hover:bg-[#b83d7a] text-white font-semibold rounded-full shadow-[0_4px_25px_rgba(209,126,165,0.5)] transition-all flex items-center justify-center gap-2 cursor-pointer text-base"
+            >
+              <Send className="w-5 h-5" /> Submit Custom Order & Send to Messenger
+            </button>
+
+            {/* Important Note Box */}
+            <div className="bg-[#140e11] border border-white/20 rounded-[14px] p-4 flex items-start gap-3 text-xs text-white/70">
+              <AlertCircle className="w-4 h-4 text-[#ca498c] flex-shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                <strong className="text-white">Important Note:</strong> We require at least a <strong className="text-white">30% downpayment</strong> to process your custom bouquet. Please allow <strong className="text-white">2 to 5 days</strong> for crafting and completion.
+              </p>
+            </div>
+          </div>
         </form>
       </div>
     </div>

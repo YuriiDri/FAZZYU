@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight, ArrowLeft, Facebook } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Facebook, AlertCircle } from "lucide-react";
 import { useAppData } from "@/app/context/AppDataContext";
 
 import imgSampleImage from "@/imports/ItemPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
@@ -177,20 +177,30 @@ export default function ItemPage() {
               {order.description || "Handcrafted wire creation made with love."}
             </p>
 
-            {/* Facebook CTA */}
-            <motion.a
-              href={messengerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              className="mt-2 flex items-center justify-center gap-3 bg-brand-pink-deep text-white rounded-full py-3.5 font-sans font-medium text-[15px] cursor-pointer shadow-[0_4px_24px_rgba(212,106,147,0.35)] hover:shadow-[0_6px_36px_rgba(212,106,147,0.5)] transition-shadow"
-            >
-              <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
-                <Facebook className="w-4 h-4 text-white" />
+            {/* Facebook CTA & Important Note Wrapper */}
+            <div className="space-y-3 mt-2">
+              <motion.a
+                href={messengerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center justify-center gap-3 bg-brand-pink-deep text-white rounded-full py-3.5 font-sans font-medium text-[15px] cursor-pointer shadow-[0_4px_24px_rgba(212,106,147,0.35)] hover:shadow-[0_6px_36px_rgba(212,106,147,0.5)] transition-shadow"
+              >
+                <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center">
+                  <Facebook className="w-4 h-4 text-white" />
+                </div>
+                Inquire on Facebook
+              </motion.a>
+
+              {/* Important Note Box */}
+              <div className="bg-bg-surface/60 border border-border-accent/30 rounded-[12px] p-3.5 flex items-start gap-2.5 text-xs text-text-muted">
+                <AlertCircle className="w-4 h-4 text-brand-pink flex-shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong className="text-text-primary">Important Note:</strong> We require at least a <strong className="text-text-primary">30% downpayment</strong> to process your order. Please allow <strong className="text-text-primary">2 to 5 days</strong> for crafting and completion.
+                </p>
               </div>
-              Inquire on Facebook
-            </motion.a>
+            </div>
           </motion.div>
         </div>
       </div>

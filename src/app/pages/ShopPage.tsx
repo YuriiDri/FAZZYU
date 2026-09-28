@@ -23,14 +23,18 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState("Popular");
   const [showSort, setShowSort] = useState(false);
 
-  const shopItems: ShopItem[] = orders.map((o) => ({
-    id: o.id,
-    name: o.title,
-    price: o.price,
-    category: o.category,
-    status: o.status,
-    image: o.images && o.images.length > 0 ? o.images[0] : imgFallback,
-  }));
+  // Only hide orders that are client-submitted custom orders (starting with #YC-CUST-).
+  // Admin-created store products will now properly show up in the shop even if status is Out of Stock.
+  const shopItems: ShopItem[] = orders
+    .filter((o) => !o.id.startsWith("#YC-CUST-"))
+    .map((o) => ({
+      id: o.id,
+      name: o.title,
+      price: o.price,
+      category: o.category,
+      status: o.status,
+      image: o.images && o.images.length > 0 ? o.images[0] : imgFallback,
+    }));
 
   const categories = ["All", ...Array.from(new Set(shopItems.map((i) => i.category).filter(Boolean)))];
 
@@ -170,7 +174,6 @@ export default function ShopPage() {
 function ProductCard({ item, index }: { item: ShopItem; index: number }) {
   const isAvailable = item.status === "Available";
   
-  // Encodes a pre-filled message containing the item name, price, and exact page URL link
   const fbMessage = encodeURIComponent(
     `Hello! I would like to inquire about this item:\n\n• Product: ${item.name}\n• Price: ₱${item.price}\n• Link: ${window.location.origin}/shop/${encodeURIComponent(item.id)}`
   );

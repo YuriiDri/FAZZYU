@@ -12,6 +12,7 @@ import CustomOrderPage from "./pages/CustomOrderPage";
 import PhotoboothPage from "./pages/PhotoboothPage";
 import ItemPage from "./pages/ItemPage";
 import GalleryPage from "./pages/GalleryPage";
+import AboutPage from "./pages/AboutPage"; // Newly imported About page
 import LoginPage from "./pages/LoginPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/shop/:id" element={<WithNav><ItemPage /></WithNav>} />
           <Route path="/photobooth" element={<WithNav><PhotoboothPage /></WithNav>} />
           <Route path="/gallery" element={<WithNav><GalleryPage /></WithNav>} />
+          <Route path="/about" element={<WithNav><AboutPage /></WithNav>} />
 
           {/* Login standalone */}
           <Route path="/login" element={<LoginPage />} />

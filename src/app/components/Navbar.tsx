@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: "Home", path: "/" },
   { label: "Shop", path: "/shop" },
   { label: "Photobooth", path: "/photobooth" },
+  { label: "About", path: "/about" },
 ];
 
 export default function Navbar() {

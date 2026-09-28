@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Search, Pencil, Trash2, Plus } from "lucide-react";
+import { Search, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAppData } from "@/app/context/AppDataContext";
 import { DataTable, StatusBadge, type ColumnDef } from "@/app/components/admin/DataTable";
@@ -17,14 +17,16 @@ export default function AdminAddEditPage() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [page, setPage] = useState(1);
 
+  // Add / Edit Order should ONLY display admin-created store products (excluding client #YC-CUST- submissions)
   const filtered = orders.filter((o) => {
+    const isAdminProduct = !o.id.startsWith("#YC-CUST-");
     const matchSearch =
       !search ||
       o.title.toLowerCase().includes(search.toLowerCase()) ||
       o.customer.toLowerCase().includes(search.toLowerCase()) ||
       o.id.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "All Status" || o.status === statusFilter;
-    return matchSearch && matchStatus;
+    return isAdminProduct && matchSearch && matchStatus;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
@@ -58,19 +60,13 @@ export default function AdminAddEditPage() {
     },
   ];
 
-  function handleDelete(id: string) {
-    deleteOrder(id);
-    toast.success("Order deleted.");
-    if (pageRows.length === 1 && page > 1) setPage((p) => p - 1);
-  }
-
   return (
     <div className="text-white">
       <h1 className="font-['Crimson_Text',serif] text-[56px] text-white leading-tight mb-1">
         Add / Edit Order
       </h1>
       <p className="font-['Roboto',sans-serif] text-[18px] text-white/70 mb-6">
-        Manage and track all customer orders.
+        Manage shop products and available catalog inventory.
       </p>
 
       {/* Toolbar */}
@@ -80,7 +76,7 @@ export default function AdminAddEditPage() {
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search Order, Customer..."
+            placeholder="Search Store Products..."
             className="w-full h-[48px] pl-10 pr-4 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] text-[15px] text-white placeholder:text-white/40 outline-none focus:border-[#ca498c]/60"
           />
         </div>
@@ -106,7 +102,7 @@ export default function AdminAddEditPage() {
         currentPage={page}
         totalPages={totalPages}
         onPageChange={setPage}
-        emptyMessage="No orders found."
+        emptyMessage="No products found in catalog."
       />
     </div>
   );
