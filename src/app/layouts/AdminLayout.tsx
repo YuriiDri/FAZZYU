@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, LayoutDashboard, ClipboardList, Package, List, Images, LogOut } from "lucide-react";
+import { Menu, X, LayoutDashboard, ClipboardList, Package, List, Images, LogOut, Layers } from "lucide-react";
 
 import imgLogo from "@/imports/DashboardPage/b34d701fd1ceed4106f0f96c9254084af23d9951.png";
 
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Inventory", path: "/admin/inventory", icon: Package },
   { label: "Order List", path: "/admin/order-list", icon: List },
   { label: "Gallery", path: "/admin/gallery", icon: Images },
+  { label: "Custom Materials", path: "/admin/custom-materials", icon: Layers },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -66,12 +67,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-// Replace line 58 of AdminLayout.tsx:
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#1E1518] flex"> {/* Changed bg-[#0c0d0c] to bg-[#1E1518] */}
+    <div className="min-h-screen bg-[#1E1518] flex">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col fixed left-3 top-3 bottom-3 w-[300px] bg-[#110f10] rounded-[20px] z-40 overflow-y-auto">
         <SidebarContent />
