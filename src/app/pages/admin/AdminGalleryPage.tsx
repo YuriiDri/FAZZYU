@@ -2,8 +2,7 @@ import { useRef, useState } from "react";
 import { Trash2, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { useAppData } from "@/app/context/AppDataContext";
-import { supabase } from "@/lib/supabase"; // Update this path to where your Supabase client is initialized
+import { useAppData, supabase } from "@/app/context/AppDataContext";
 
 export default function AdminGalleryPage() {
   const { galleryImages, addGalleryImage, deleteGalleryImage } = useAppData();
