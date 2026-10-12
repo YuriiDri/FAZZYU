@@ -73,8 +73,8 @@ interface AppDataContextValue {
   deleteInventoryItem: (id: string) => void;
 
   galleryImages: GalleryImage[];
-  addGalleryImage: (img: GalleryImage) => void;
-  deleteGalleryImage: (id: string) => void;
+  addGalleryImage: (img: GalleryImage) => Promise<void>;
+  deleteGalleryImage: (id: string) => Promise<void>;
 }
 
 const SEED_PRODUCTS: Product[] = [
@@ -222,6 +222,7 @@ const SEED_INVENTORY: InventoryItem[] = [
   },
 ];
 
+// Provide fallback seed data for gallery in case DB is empty initially
 const SEED_GALLERY: GalleryImage[] = [
   { id: "gal-1", src: imgGallerySample, productId: 1 },
   { id: "gal-2", src: imgItemMain, productId: 1 },
@@ -256,15 +257,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [imageOrders, setImageOrders] = useState<ImageOrders>(stored?.imageOrders ?? {});
   const [orders, setOrders] = useState<Order[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>(stored?.inventory ?? SEED_INVENTORY);
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>(stored?.galleryImages ?? SEED_GALLERY);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
 
-  // Fetch orders from Supabase on mount & handle real-time sync
+  // 1. Fetch Orders and Gallery Images on Mount
   useEffect(() => {
-    async function fetchOrders() {
-      const { data, error } = await supabase.from("orders").select("*");
-      if (!error && data && data.length > 0) {
-        // Map database column names back to frontend camelCase keys if needed
-        const formattedOrders: Order[] = data.map((item: any) => ({
+    async function fetchData() {
+      // Fetch Orders
+      const { data: orderData, error: orderError } = await supabase.from("orders").select("*");
+      if (!orderError && orderData && orderData.length > 0) {
+        const formattedOrders: Order[] = orderData.map((item: any) => ({
           id: item.id,
           title: item.title,
           price: item.price,
@@ -282,24 +283,44 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       } else {
         setOrders(stored?.orders ?? SEED_ORDERS);
       }
-    }
-    fetchOrders();
 
-    const channel = supabase
+      // Fetch Gallery Images
+      const { data: galleryData, error: galleryError } = await supabase.from("gallery").select("*");
+      if (!galleryError && galleryData && galleryData.length > 0) {
+        setGalleryImages(galleryData);
+      } else {
+        setGalleryImages(SEED_GALLERY); // Fallback if empty
+      }
+    }
+    
+    fetchData();
+
+    // 2. Real-time Subscription for Orders
+    const orderChannel = supabase
       .channel("public:orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        fetchOrders();
+        fetchData();
+      })
+      .subscribe();
+
+    // Real-time Subscription for Gallery
+    const galleryChannel = supabase
+      .channel("public:gallery")
+      .on("postgres_changes", { event: "*", schema: "public", table: "gallery" }, () => {
+        fetchData();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(orderChannel);
+      supabase.removeChannel(galleryChannel);
     };
   }, []);
 
+  // Save non-Supabase data to local storage
   useEffect(() => {
-    saveToStorage({ imageOrders, inventory, galleryImages });
-  }, [imageOrders, inventory, galleryImages]);
+    saveToStorage({ imageOrders, inventory });
+  }, [imageOrders, inventory]);
 
   function getPrimaryImageIndex(productId: number): number {
     const order = imageOrders[productId];
@@ -375,12 +396,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setInventory((prev) => prev.filter((i) => i.id !== id));
   }
 
-  function addGalleryImage(img: GalleryImage) {
-    setGalleryImages((prev) => [...prev, img]);
+  // --- NEW CLOUD SYNCED GALLERY FUNCTIONS ---
+
+  async function addGalleryImage(img: GalleryImage) {
+    // Save new gallery record to Supabase
+    const { error } = await supabase.from("gallery").insert([
+      {
+        id: img.id,
+        src: img.src,
+      },
+    ]);
+    if (!error) {
+      setGalleryImages((prev) => [...prev, img]);
+    } else {
+      console.error("Failed to add image to DB:", error);
+    }
   }
 
-  function deleteGalleryImage(id: string) {
-    setGalleryImages((prev) => prev.filter((g) => g.id !== id));
+  async function deleteGalleryImage(id: string) {
+    // Delete record from Supabase
+    const { error } = await supabase.from("gallery").delete().match({ id });
+    if (!error) {
+      setGalleryImages((prev) => prev.filter((g) => g.id !== id));
+    } else {
+      console.error("Failed to delete image from DB:", error);
+    }
   }
 
   return (
