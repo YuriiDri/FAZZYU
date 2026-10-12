@@ -222,7 +222,7 @@ const SEED_INVENTORY: InventoryItem[] = [
   },
 ];
 
-// Provide fallback seed data for gallery in case DB is empty initially
+// Provide fallback seed data for gallery in case DB is completely unavailable initially
 const SEED_GALLERY: GalleryImage[] = [
   { id: "gal-1", src: imgGallerySample, productId: 1 },
   { id: "gal-2", src: imgItemMain, productId: 1 },
@@ -264,7 +264,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     async function fetchData() {
       // Fetch Orders
       const { data: orderData, error: orderError } = await supabase.from("orders").select("*");
-      if (!orderError && orderData && orderData.length > 0) {
+      if (orderError) {
+        setOrders(stored?.orders ?? SEED_ORDERS);
+      } else {
         const formattedOrders: Order[] = orderData.map((item: any) => ({
           id: item.id,
           title: item.title,
@@ -280,16 +282,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           images: item.images || [],
         }));
         setOrders(formattedOrders);
-      } else {
-        setOrders(stored?.orders ?? SEED_ORDERS);
       }
 
       // Fetch Gallery Images
       const { data: galleryData, error: galleryError } = await supabase.from("gallery").select("*");
-      if (!galleryError && galleryData && galleryData.length > 0) {
-        setGalleryImages(galleryData);
+      if (galleryError) {
+        setGalleryImages(SEED_GALLERY); // ONLY fallback if there is a connection error
       } else {
-        setGalleryImages(SEED_GALLERY); // Fallback if empty
+        // If data is empty (user deleted all photos), it safely sets an empty array!
+        const formattedGallery: GalleryImage[] = galleryData.map((item: any) => ({
+          id: item.id,
+          src: item.src,
+          productId: item.product_id, // Safely maps database snake_case to React camelCase
+        }));
+        setGalleryImages(formattedGallery);
       }
     }
     
@@ -404,6 +410,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       {
         id: img.id,
         src: img.src,
+        product_id: img.productId, // Ensure mapping to database snake_case
       },
     ]);
     if (!error) {
