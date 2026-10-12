@@ -130,7 +130,7 @@ export default function CustomOrderPage() {
             <Sparkles className="w-8 h-8 text-[#ca498c]" /> Customize Your Creation
           </h1>
           <p className="text-white/70 text-sm mt-2">
-            Design your personalized masterpiece by selecting flowers and wrappers with live pricing!
+            Design your personalized masterpiece by selecting flowers and wrappers!
           </p>
         </div>
 
@@ -182,8 +182,7 @@ export default function CustomOrderPage() {
                           <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">No Img</div>
                         )}
                       </div>
-                      <span className="text-xs font-medium text-white leading-tight mb-1">{flower.name}</span>
-                      <span className="text-[10px] font-serif text-[#ca498c] mb-2">₱{flower.price}</span>
+                      <span className="text-xs font-medium text-white leading-tight mb-3">{flower.name}</span>
                       
                       {/* Plus / Minus Counter */}
                       <div className="flex items-center gap-2 bg-black/50 px-2 py-1 rounded-full border border-white/10">
@@ -272,8 +271,7 @@ export default function CustomOrderPage() {
                           <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">No Img</div>
                         )}
                       </div>
-                      <span className="text-xs font-medium text-white leading-tight mb-1">{wrap.name}</span>
-                      <span className="text-[10px] font-serif text-[#ca498c] mb-2">₱{wrap.price}</span>
+                      <span className="text-xs font-medium text-white leading-tight mb-3">{wrap.name}</span>
                       
                       {/* Plus / Minus Counter */}
                       <div className="flex items-center gap-2 bg-black/50 px-2 py-1 rounded-full border border-white/10">
