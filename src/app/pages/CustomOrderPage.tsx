@@ -17,7 +17,6 @@ export default function CustomOrderPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [themeInput, setThemeInput] = useState("");
-  const [wrapping, setWrapping] = useState("");
   const [size, setSize] = useState("Medium");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -75,15 +74,16 @@ export default function CustomOrderPage() {
 
     const orderId = `#YC-CUST-${Math.floor(1000 + Math.random() * 9000)}`;
     
+    // Gather names and quantities of selected flowers and wrappers
     const selectedMaterialsSummary = customizedMaterials
       .filter((m) => (quantities[m.id] || 0) > 0)
       .map((m) => `${quantities[m.id]}x ${m.name}`)
       .join(", ");
 
     let compiledTitle = `Custom ${category}`;
-    let compiledDefinition = `Size: ${size} | Wrapping: ${wrapping || "Standard"}`;
+    let compiledDefinition = `Size: ${size}`;
     if (category === "Bouquet") {
-      compiledDefinition += ` | Materials: ${selectedMaterialsSummary || "None selected"} | Colors: ${selectedColors.join(", ")}`;
+      compiledDefinition += ` | Materials: ${selectedMaterialsSummary || "None selected"} | Colors: ${selectedColors.join(", ") || "None"}`;
     } else if (category === "Themed") {
       compiledDefinition += ` | Theme: ${themeInput}`;
     }
@@ -156,35 +156,43 @@ export default function CustomOrderPage() {
             </div>
           </div>
 
-          {/* 2. Dynamic Flowers Section with Plus/Minus Counters */}
+          {/* 2. Dynamic Flowers Section with Visual Image Cards */}
           {category === "Bouquet" && (
             <div className="bg-[#140e11] border border-white/20 rounded-[20px] p-6 space-y-6 shadow-xl">
               <h2 className="font-serif text-xl text-white/90">2. Select Flowers & Quantities</h2>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[420px] overflow-y-auto pr-1">
                 {flowers.map((flower) => {
                   const qty = quantities[flower.id] || 0;
+                  const isSelected = qty > 0;
+                  
                   return (
-                    <div key={flower.id} className="bg-black/30 border border-white/10 rounded-[16px] p-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-white">{flower.name}</p>
-                        <p className="text-xs font-serif text-[#ca498c] mt-0.5">₱{flower.price} each</p>
+                    <div
+                      key={flower.id}
+                      className={`flex flex-col items-center p-3 rounded-[14px] transition-all border text-center ${
+                        isSelected 
+                          ? "bg-[#ca498c]/20 border-[#ca498c] shadow-[0_0_15px_rgba(209,126,165,0.2)]" 
+                          : "bg-black/30 border-white/10"
+                      }`}
+                    >
+                      <div className="w-16 h-16 rounded-[10px] overflow-hidden mb-2 border border-white/20 bg-black/40">
+                        {flower.image ? (
+                          <img src={flower.image} alt={flower.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">No Img</div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 bg-black/50 px-3 py-1.5 rounded-full border border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(flower.id, -1)}
-                          className="text-white/70 hover:text-white cursor-pointer"
-                        >
-                          <Minus className="w-4 h-4" />
+                      <span className="text-xs font-medium text-white leading-tight mb-1">{flower.name}</span>
+                      <span className="text-[10px] font-serif text-[#ca498c] mb-2">₱{flower.price}</span>
+                      
+                      {/* Plus / Minus Counter */}
+                      <div className="flex items-center gap-2 bg-black/50 px-2 py-1 rounded-full border border-white/10">
+                        <button type="button" onClick={() => handleQuantityChange(flower.id, -1)} className="text-white/70 hover:text-white">
+                          <Minus className="w-3 h-3" />
                         </button>
-                        <span className="font-medium text-white w-6 text-center text-sm">{qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(flower.id, 1)}
-                          className="text-white/70 hover:text-white cursor-pointer"
-                        >
-                          <Plus className="w-4 h-4" />
+                        <span className="text-xs font-medium text-white w-4">{qty}</span>
+                        <button type="button" onClick={() => handleQuantityChange(flower.id, 1)} className="text-white/70 hover:text-white">
+                          <Plus className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -222,7 +230,7 @@ export default function CustomOrderPage() {
             </div>
           )}
 
-          {/* 3. Dynamic Wrappers Section with Plus/Minus Counters */}
+          {/* 3. Dynamic Wrappers Section with Visual Image Cards */}
           <div className="bg-[#140e11] border border-white/20 rounded-[20px] p-6 space-y-6 shadow-xl">
             <h2 className="font-serif text-xl text-white/90">3. Select Wrapping Style & Size</h2>
             
@@ -243,30 +251,38 @@ export default function CustomOrderPage() {
 
             <div>
               <label className="block text-sm font-medium text-white/80 mb-3">Wrappers (Select quantities)</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {wrappers.map((wrap) => {
                   const qty = quantities[wrap.id] || 0;
+                  const isSelected = qty > 0;
+                  
                   return (
-                    <div key={wrap.id} className="bg-black/30 border border-white/10 rounded-[16px] p-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-white">{wrap.name}</p>
-                        <p className="text-xs font-serif text-[#ca498c] mt-0.5">₱{wrap.price} each</p>
+                    <div
+                      key={wrap.id}
+                      className={`flex flex-col items-center p-3 rounded-[14px] transition-all border text-center ${
+                        isSelected 
+                          ? "bg-[#ca498c]/20 border-[#ca498c] shadow-[0_0_15px_rgba(209,126,165,0.2)]" 
+                          : "bg-black/30 border-white/10"
+                      }`}
+                    >
+                      <div className="w-16 h-16 rounded-[10px] overflow-hidden mb-2 border border-white/20 bg-black/40">
+                        {wrap.image ? (
+                          <img src={wrap.image} alt={wrap.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">No Img</div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 bg-black/50 px-3 py-1.5 rounded-full border border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(wrap.id, -1)}
-                          className="text-white/70 hover:text-white cursor-pointer"
-                        >
-                          <Minus className="w-4 h-4" />
+                      <span className="text-xs font-medium text-white leading-tight mb-1">{wrap.name}</span>
+                      <span className="text-[10px] font-serif text-[#ca498c] mb-2">₱{wrap.price}</span>
+                      
+                      {/* Plus / Minus Counter */}
+                      <div className="flex items-center gap-2 bg-black/50 px-2 py-1 rounded-full border border-white/10">
+                        <button type="button" onClick={() => handleQuantityChange(wrap.id, -1)} className="text-white/70 hover:text-white">
+                          <Minus className="w-3 h-3" />
                         </button>
-                        <span className="font-medium text-white w-6 text-center text-sm">{qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(wrap.id, 1)}
-                          className="text-white/70 hover:text-white cursor-pointer"
-                        >
-                          <Plus className="w-4 h-4" />
+                        <span className="text-xs font-medium text-white w-4">{qty}</span>
+                        <button type="button" onClick={() => handleQuantityChange(wrap.id, 1)} className="text-white/70 hover:text-white">
+                          <Plus className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
