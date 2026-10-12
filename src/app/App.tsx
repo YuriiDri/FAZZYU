@@ -12,7 +12,7 @@ import CustomOrderPage from "./pages/CustomOrderPage";
 import PhotoboothPage from "./pages/PhotoboothPage";
 import ItemPage from "./pages/ItemPage";
 import GalleryPage from "./pages/GalleryPage";
-import AboutPage from "./pages/AboutPage"; // Newly imported About page
+import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -24,6 +24,7 @@ import AdminInventoryPage from "./pages/admin/AdminInventoryPage";
 import AdminAddNewItemPage from "./pages/admin/AdminAddNewItemPage";
 import AdminEditItemPage from "./pages/admin/AdminEditItemPage";
 import AdminGalleryPage from "./pages/admin/AdminGalleryPage";
+import AdminCustomMaterialsPage from "./pages/admin/AdminCustomMaterialsPage"; // Newly imported Custom Materials admin page
 
 function WithNav({ children }: { children: React.ReactNode }) {
   return (
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="/admin/inventory/new" element={<AdminShell><AdminAddNewItemPage /></AdminShell>} />
           <Route path="/admin/inventory/:id/edit" element={<AdminShell><AdminEditItemPage /></AdminShell>} />
           <Route path="/admin/gallery" element={<AdminShell><AdminGalleryPage /></AdminShell>} />
+          <Route path="/admin/custom-materials" element={<AdminShell><AdminCustomMaterialsPage /></AdminShell>} />
         </Routes>
       </AppDataProvider>
     </BrowserRouter>

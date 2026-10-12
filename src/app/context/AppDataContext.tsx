@@ -55,6 +55,14 @@ export type GalleryImage = {
   productId?: number;
 };
 
+export type CustomizedMaterial = {
+  id: string;
+  name: string;
+  category: "flower" | "wrapper";
+  price: number;
+  image?: string;
+};
+
 type ImageOrders = Record<number, number[]>;
 
 interface AppDataContextValue {
@@ -75,6 +83,11 @@ interface AppDataContextValue {
   galleryImages: GalleryImage[];
   addGalleryImage: (img: GalleryImage) => Promise<void>;
   deleteGalleryImage: (id: string) => Promise<void>;
+
+  customizedMaterials: CustomizedMaterial[];
+  addCustomizedMaterial: (item: CustomizedMaterial) => Promise<void>;
+  updateCustomizedMaterial: (id: string, patch: Partial<CustomizedMaterial>) => Promise<void>;
+  deleteCustomizedMaterial: (id: string) => Promise<void>;
 }
 
 const SEED_PRODUCTS: Product[] = [
@@ -222,12 +235,18 @@ const SEED_INVENTORY: InventoryItem[] = [
   },
 ];
 
-// Provide fallback seed data for gallery in case DB is completely unavailable initially
 const SEED_GALLERY: GalleryImage[] = [
   { id: "gal-1", src: imgGallerySample, productId: 1 },
   { id: "gal-2", src: imgItemMain, productId: 1 },
   { id: "gal-3", src: imgExampleImage, productId: 2 },
   { id: "gal-4", src: imgExampleImage, productId: 3 },
+];
+
+const SEED_MATERIALS: CustomizedMaterial[] = [
+  { id: "mat-1", name: "Sunflower", category: "flower", price: 50 },
+  { id: "mat-2", name: "Rose", category: "flower", price: 40 },
+  { id: "mat-3", name: "Classic Cellophane", category: "wrapper", price: 30 },
+  { id: "mat-4", name: "Korean Paper", category: "wrapper", price: 45 },
 ];
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -258,8 +277,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>(stored?.inventory ?? SEED_INVENTORY);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [customizedMaterials, setCustomizedMaterials] = useState<CustomizedMaterial[]>([]);
 
-  // 1. Fetch Orders and Gallery Images on Mount
+  // 1. Fetch Orders, Gallery, and Customized Materials on Mount
   useEffect(() => {
     async function fetchData() {
       // Fetch Orders
@@ -287,43 +307,56 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       // Fetch Gallery Images
       const { data: galleryData, error: galleryError } = await supabase.from("gallery").select("*");
       if (galleryError) {
-        setGalleryImages(SEED_GALLERY); // ONLY fallback if there is a connection error
+        setGalleryImages(SEED_GALLERY);
       } else {
-        // If data is empty (user deleted all photos), it safely sets an empty array!
         const formattedGallery: GalleryImage[] = galleryData.map((item: any) => ({
           id: item.id,
           src: item.src,
-          productId: item.product_id, // Safely maps database snake_case to React camelCase
+          productId: item.product_id,
         }));
         setGalleryImages(formattedGallery);
+      }
+
+      // Fetch Customized Materials
+      const { data: matData, error: matError } = await supabase.from("customized_materials").select("*");
+      if (matError || !matData || matData.length === 0) {
+        setCustomizedMaterials(SEED_MATERIALS);
+      } else {
+        setCustomizedMaterials(matData.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          price: m.price,
+          image: m.image,
+        })));
       }
     }
     
     fetchData();
 
-    // 2. Real-time Subscription for Orders
+    // 2. Real-time Subscriptions
     const orderChannel = supabase
       .channel("public:orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        fetchData();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchData())
       .subscribe();
 
-    // Real-time Subscription for Gallery
     const galleryChannel = supabase
       .channel("public:gallery")
-      .on("postgres_changes", { event: "*", schema: "public", table: "gallery" }, () => {
-        fetchData();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "gallery" }, () => fetchData())
+      .subscribe();
+
+    const materialChannel = supabase
+      .channel("public:customized_materials")
+      .on("postgres_changes", { event: "*", schema: "public", table: "customized_materials" }, () => fetchData())
       .subscribe();
 
     return () => {
       supabase.removeChannel(orderChannel);
       supabase.removeChannel(galleryChannel);
+      supabase.removeChannel(materialChannel);
     };
   }, []);
 
-  // Save non-Supabase data to local storage
   useEffect(() => {
     saveToStorage({ imageOrders, inventory });
   }, [imageOrders, inventory]);
@@ -402,15 +435,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setInventory((prev) => prev.filter((i) => i.id !== id));
   }
 
-  // --- NEW CLOUD SYNCED GALLERY FUNCTIONS ---
-
   async function addGalleryImage(img: GalleryImage) {
-    // Save new gallery record to Supabase
     const { error } = await supabase.from("gallery").insert([
       {
         id: img.id,
         src: img.src,
-        product_id: img.productId, // Ensure mapping to database snake_case
+        product_id: img.productId,
       },
     ]);
     if (!error) {
@@ -421,12 +451,48 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteGalleryImage(id: string) {
-    // Delete record from Supabase
     const { error } = await supabase.from("gallery").delete().match({ id });
     if (!error) {
       setGalleryImages((prev) => prev.filter((g) => g.id !== id));
     } else {
       console.error("Failed to delete image from DB:", error);
+    }
+  }
+
+  // --- CUSTOMIZED MATERIALS CLOUD FUNCTIONS ---
+
+  async function addCustomizedMaterial(item: CustomizedMaterial) {
+    const { error } = await supabase.from("customized_materials").insert([
+      {
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        image: item.image,
+      },
+    ]);
+    if (!error) {
+      setCustomizedMaterials((prev) => [...prev, item]);
+    } else {
+      console.error("Failed to add custom material:", error);
+    }
+  }
+
+  async function updateCustomizedMaterial(id: string, patch: Partial<CustomizedMaterial>) {
+    const { error } = await supabase.from("customized_materials").update(patch).match({ id });
+    if (!error) {
+      setCustomizedMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    } else {
+      console.error("Failed to update custom material:", error);
+    }
+  }
+
+  async function deleteCustomizedMaterial(id: string) {
+    const { error } = await supabase.from("customized_materials").delete().match({ id });
+    if (!error) {
+      setCustomizedMaterials((prev) => prev.filter((m) => m.id !== id));
+    } else {
+      console.error("Failed to delete custom material:", error);
     }
   }
 
@@ -447,6 +513,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         galleryImages,
         addGalleryImage,
         deleteGalleryImage,
+        customizedMaterials,
+        addCustomizedMaterial,
+        updateCustomizedMaterial,
+        deleteCustomizedMaterial,
       }}
     >
       {children}
