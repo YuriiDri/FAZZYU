@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Facebook, Mail, Sparkles, Check
 import { toast } from "sonner";
 import { Card } from "@/app/components/Card";
 import { useAppData } from "@/app/context/AppDataContext";
+import FazzyuAiChatbot from "@/app/components/FazzyuAiChatbot"; // Chatbot Import
 
 import imgHeroBg from "@/imports/image.png";
 import imgGalleryFallback from "@/imports/HomePage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
@@ -56,6 +57,9 @@ export default function HomePage() {
           </button>
         </footer>
       </div>
+
+      {/* Floating AI Chatbot Widget */}
+      <FazzyuAiChatbot />
     </div>
   );
 }

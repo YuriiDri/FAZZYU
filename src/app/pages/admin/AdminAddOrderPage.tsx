@@ -1,12 +1,12 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAppData, type Order } from "@/app/context/AppDataContext";
+import { useAppData, supabase, type Order } from "@/app/context/AppDataContext";
 import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
 
 const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
-const CATEGORY_OPTIONS = ["Bouquet", "Themed", "Dolls", "Craft"];
+const CATEGORY_OPTIONS = ["Bouquets", "Themed", "Dolls", "Crafts"];
 
 export default function AdminAddOrderPage() {
   const { addOrder } = useAppData();
@@ -16,19 +16,36 @@ export default function AdminAddOrderPage() {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [status, setStatus] = useState("Available");
-  const [category, setCategory] = useState("Bouquet");
+  const [category, setCategory] = useState("Bouquets");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
-  function handleFiles(files: FileList | null) {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) setImages((prev) => [...prev, e.target!.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+        newUrls.push(data.publicUrl);
+      }
+      setImages((prev) => [...prev, ...newUrls]);
+      toast.success("Images uploaded to cloud.");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload images.");
+    } finally {
+      setIsUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   async function handleSave() {
@@ -44,119 +61,99 @@ export default function AdminAddOrderPage() {
       status: status as Order["status"],
       description,
       definition: "",
-      customer: "General Customer", // Default customer name so it maps correctly to the order list view
+      customer: "General Customer", 
       payment: "GCASH",
       paymentDate: new Date().toLocaleDateString(),
       notes: "",
       images,
     });
-    toast.success("Order created successfully.");
+    toast.success("Product created successfully.");
     navigate("/admin/orders");
   }
 
   return (
     <div className="text-white">
-      <h1 className="font-['Crimson_Text',serif] text-[56px] text-white leading-tight mb-1">
-        Add New Order
+      <h1 className="font-serif text-[56px] text-white leading-tight mb-1">
+        Add New Product
       </h1>
-      <p className="font-['Roboto',sans-serif] text-[18px] text-white/70 mb-6">
-        Create a new order for your customer.
+      <p className="font-sans text-[18px] text-white/70 mb-6">
+        Create a new product for your catalog.
       </p>
 
-      {/* Action buttons */}
       <div className="flex gap-3 justify-end mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="h-[56px] px-8 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[16px] text-white/74 hover:border-white/40 transition-colors cursor-pointer"
+          className="h-[56px] px-8 bg-[#141414] border border-white/25 rounded-[15px] font-sans font-medium text-[16px] text-white/75 hover:border-white/40 transition-colors cursor-pointer"
         >
           Cancel
         </button>
         <button
           onClick={handleSave}
-          className="h-[56px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors cursor-pointer"
+          className="h-[56px] px-8 bg-[#ca498c] border border-white/25 rounded-[15px] font-sans font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors cursor-pointer"
         >
-          + Add New Order
+          + Add New Product
         </button>
       </div>
 
-      {/* Order Information Panel */}
-      <div className="bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6 mb-6">
-        <h2 className="font-['Roboto',sans-serif] font-bold text-[18px] text-white/75 mb-6">
-          Order Information
-        </h2>
+      <div className="bg-[#141414] border border-white/25 rounded-[15px] p-6 mb-6">
+        <h2 className="font-sans font-bold text-[18px] text-white/75 mb-6">Product Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="block font-['Roboto',sans-serif] font-medium text-[16px] text-white/75 mb-2">
-              Order Title
-            </label>
+            <label className="block font-sans font-medium text-[16px] text-white/75 mb-2">Title</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Sunflower Bouquet"
-              className="w-full h-[48px] px-4 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 placeholder:text-white/30"
+              className="w-full h-[48px] px-4 bg-[#141414] border border-white/25 rounded-[10px] text-white outline-none focus:border-[#ca498c]/60"
             />
           </div>
           <div>
-            <label className="block font-['Roboto',sans-serif] font-medium text-[16px] text-white/75 mb-2">
-              Price (₱)
-            </label>
+            <label className="block font-sans font-medium text-[16px] text-white/75 mb-2">Price (₱)</label>
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0"
-              className="w-full h-[48px] px-4 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 placeholder:text-white/30"
+              className="w-full h-[48px] px-4 bg-[#141414] border border-white/25 rounded-[10px] text-white outline-none focus:border-[#ca498c]/60"
             />
           </div>
           <div>
-            <label className="block font-['Roboto',sans-serif] font-medium text-[16px] text-white/75 mb-2">
-              Status
-            </label>
+            <label className="block font-sans font-medium text-[16px] text-white/75 mb-2">Status</label>
             <AdminDropdown options={STATUS_OPTIONS} value={status} onChange={setStatus} />
           </div>
           <div>
-            <label className="block font-['Roboto',sans-serif] font-medium text-[16px] text-white/75 mb-2">
-              Category
-            </label>
+            <label className="block font-sans font-medium text-[16px] text-white/75 mb-2">Category</label>
             <AdminDropdown options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
           </div>
           <div className="md:col-span-2">
-            <label className="block font-['Roboto',sans-serif] font-medium text-[16px] text-white/75 mb-2">
-              Description
-            </label>
+            <label className="block font-sans font-medium text-[16px] text-white/75 mb-2">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Order description..."
-              className="w-full px-4 py-3 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 placeholder:text-white/30 resize-none"
+              placeholder="Product description..."
+              className="w-full px-4 py-3 bg-[#141414] border border-white/25 rounded-[10px] text-white outline-none focus:border-[#ca498c]/60 resize-none"
             />
           </div>
         </div>
       </div>
 
-      {/* Attach Product Image Panel */}
-      <div className="bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6">
-        <h2 className="font-['Roboto',sans-serif] font-bold text-[18px] text-white/75 mb-1">
-          Attach Product Image
-        </h2>
-        <p className="font-['Roboto',sans-serif] text-[14px] text-white/75 mb-4">
-          This image will be visible to the customer in their order details.
-        </p>
+      <div className="bg-[#141414] border border-white/25 rounded-[15px] p-6">
+        <h2 className="font-sans font-bold text-[18px] text-white/75 mb-1">Attach Product Image</h2>
+        <p className="font-sans text-[14px] text-white/75 mb-4">Upload images to your cloud storage bucket.</p>
         <div className="flex flex-wrap gap-4">
-          {/* Upload button */}
           <button
             onClick={() => fileRef.current?.click()}
-            className="w-[166px] h-[177px] bg-[#141414] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer"
+            disabled={isUploading}
+            className="w-[166px] h-[177px] bg-[#141414] border border-dashed border-white/25 rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Upload className="w-10 h-10 text-white/60" />
-            <span className="font-['Roboto',sans-serif] text-[12px] text-white/75">Click to upload image</span>
+            {isUploading ? <Loader2 className="w-8 h-8 text-white/60 animate-spin" /> : <Upload className="w-10 h-10 text-white/60" />}
+            <span className="font-sans text-[12px] text-white/75">{isUploading ? "Uploading..." : "Click to upload"}</span>
           </button>
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
 
-          {/* Previews */}
           {images.map((src, i) => (
-            <div key={i} className="relative w-[166px] h-[177px] rounded-[12px] overflow-hidden border border-[rgba(255,255,255,0.25)]">
+            <div key={i} className="relative w-[166px] h-[177px] rounded-[12px] overflow-hidden border border-white/25">
               <img src={src} alt="" className="w-full h-full object-cover" />
               <button
                 onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}

@@ -1,109 +1,201 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Search, Pencil, Plus } from "lucide-react";
+import { useState, useRef } from "react";
+import { useNavigate, useParams } from "react-router";
+import { Upload, X, Calendar, Heart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAppData } from "@/app/context/AppDataContext";
-import { DataTable, StatusBadge, type ColumnDef } from "@/app/components/admin/DataTable";
+import { useAppData, supabase, type Order } from "@/app/context/AppDataContext";
 import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
-import type { Order } from "@/app/context/AppDataContext";
 
-const ROWS_PER_PAGE = 7;
-const STATUS_OPTIONS = ["All Status", "Available", "Out of Stock", "Paid", "Pending"];
+const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
+const CATEGORY_OPTIONS = ["Bouquets", "Themed", "Dolls", "Crafts"];
+const PAYMENT_OPTIONS = ["GCASH", "CASH"];
 
-export default function AdminAddEditPage() {
-  const { orders, deleteOrder } = useAppData();
+const inputCls = "w-full h-[48px] px-4 bg-[#140e11] border border-white/25 rounded-[10px] font-sans text-[15px] text-white outline-none focus:border-[#ca498c]/60";
+const labelCls = "block font-sans font-medium text-[22px] text-white/75 mb-2";
+
+export default function AdminEditOrderPage() {
+  const { id: rawId } = useParams<{ id: string }>();
+  const { orders, updateOrder, deleteOrder } = useAppData();
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All Status");
-  const [page, setPage] = useState(1);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Add / Edit Order should ONLY display admin-created store products (excluding client #YC-CUST- submissions)
-  const filtered = orders.filter((o) => {
-    const isAdminProduct = !o.id.startsWith("#YC-CUST-");
-    const matchSearch =
-      !search ||
-      o.title.toLowerCase().includes(search.toLowerCase()) ||
-      o.customer.toLowerCase().includes(search.toLowerCase()) ||
-      o.id.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "All Status" || o.status === statusFilter;
-    return isAdminProduct && matchSearch && matchStatus;
-  });
+  const id = rawId ? decodeURIComponent(rawId) : "";
+  const order = orders.find((o) => o.id === id);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
-  const pageRows = filtered.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
+  const [title, setTitle] = useState(order?.title ?? "");
+  const [price, setPrice] = useState(String(order?.price ?? ""));
+  const [category, setCategory] = useState(order?.category ?? "Bouquets");
+  const [status, setStatus] = useState<Order["status"]>(order?.status ?? "Available");
+  const [definition, setDefinition] = useState(order?.definition ?? "");
+  const [customer, setCustomer] = useState(order?.customer ?? "");
+  const [orderId, setOrderId] = useState(order?.id && order.id.startsWith("#YC-") ? order.id : "");
+  const [payment, setPayment] = useState<"GCASH" | "CASH">(order?.payment ?? "GCASH");
+  const [paymentDate, setPaymentDate] = useState(order?.paymentDate ?? "");
+  const [notes, setNotes] = useState(order?.notes ?? "");
+  const [images, setImages] = useState<string[]>(order?.images ?? []);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const columns: ColumnDef<Order>[] = [
-    { key: "title", label: "Title", width: "2fr" },
-    { key: "price", label: "Price", width: "1fr", render: (r) => `₱${r.price}` },
-    { key: "paymentDate", label: "Date", width: "1.5fr" },
-    {
-      key: "status",
-      label: "Status",
-      width: "1.2fr",
-      render: (r) => <StatusBadge status={r.status} />,
-    },
-    {
-      key: "action",
-      label: "Action",
-      width: "80px",
-      render: (r) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/admin/orders/${encodeURIComponent(r.id)}/edit`);
-          }}
-          className="text-[#9d9898] hover:text-[#ca498c] transition-colors"
-        >
-          <Pencil className="w-5 h-5" />
-        </button>
-      ),
-    },
-  ];
+  if (!order) {
+    return (
+      <div className="text-white text-center py-20">
+        <p className="text-[20px]">Order not found.</p>
+        <button onClick={() => navigate("/admin/orders")} className="mt-4 text-[#ca498c] underline cursor-pointer">Back to orders</button>
+      </div>
+    );
+  }
+
+  function handleCustomerChange(value: string) {
+    setCustomer(value);
+    if (value.trim() && !orderId) {
+      setOrderId(`#YC-${Math.floor(1000 + Math.random() * 9000)}`);
+    }
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+        newUrls.push(data.publicUrl);
+      }
+      setImages((prev) => [...prev, ...newUrls]);
+      toast.success("Images uploaded to cloud.");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload images.");
+    } finally {
+      setIsUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  function handleSetPrimary(idx: number) {
+    setImages((prev) => {
+      const updated = [...prev];
+      const [selected] = updated.splice(idx, 1);
+      updated.unshift(selected);
+      return updated;
+    });
+    toast.success("Set as main product image.");
+  }
+
+  function handleSave() {
+    if (!title.trim()) {
+      toast.error("Please fill in Order Title.");
+      return;
+    }
+    updateOrder(order.id, {
+      id: orderId || order.id,
+      title, price: Number(price), category, status, definition,
+      customer, payment, paymentDate, notes, images,
+    });
+    toast.success("Order updated.");
+    navigate("/admin/orders");
+  }
+
+  function handleDelete() {
+    deleteOrder(order.id);
+    toast.success("Order deleted.");
+    navigate("/admin/orders");
+  }
 
   return (
     <div className="text-white">
-      <h1 className="font-['Crimson_Text',serif] text-[56px] text-white leading-tight mb-1">
-        Add / Edit Order
-      </h1>
-      <p className="font-['Roboto',sans-serif] text-[18px] text-white/70 mb-6">
-        Manage shop products and available catalog inventory.
-      </p>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 items-center mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
-          <input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search Store Products..."
-            className="w-full h-[48px] pl-10 pr-4 bg-[#141414] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] text-[15px] text-white placeholder:text-white/40 outline-none focus:border-[#ca498c]/60"
-          />
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="font-serif text-[64px] text-white leading-tight">Edit Order</h1>
+          <p className="font-sans text-[24px] text-white leading-snug">Update an existing order.</p>
         </div>
-        <AdminDropdown
-          options={STATUS_OPTIONS}
-          value={statusFilter}
-          onChange={(v) => { setStatusFilter(v); setPage(1); }}
-          className="w-[180px]"
-        />
-        <button
-          onClick={() => navigate("/admin/orders/new")}
-          className="flex items-center gap-2 h-[48px] px-5 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add New Order
-        </button>
+        <div className="flex items-center gap-3 mt-2">
+          <button onClick={() => navigate(-1)} className="h-[72px] px-8 bg-[#140e11] border border-white/25 rounded-[15px] font-sans font-medium text-[20px] text-white/75 hover:border-white/40 transition-colors cursor-pointer">
+            Cancel
+          </button>
+          <button onClick={handleSave} className="h-[72px] px-8 bg-[#ca498c] border border-white/25 rounded-[15px] font-sans font-semibold text-[22px] text-white/75 hover:bg-[#b83d7a] transition-colors cursor-pointer">
+            Save Order
+          </button>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        rows={pageRows}
-        onRowClick={(row) => navigate(`/admin/orders/${encodeURIComponent(row.id)}/edit`)}
-        currentPage={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        emptyMessage="No products found in catalog."
-      />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <div className="bg-[#140e11] border border-white/25 rounded-[15px] p-6">
+          <h2 className="font-sans font-bold text-[23px] text-white/75 mb-6">Order Information</h2>
+          <div className="flex flex-col gap-5">
+            <div><label className={labelCls}>Title</label><input value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} /></div>
+            <div><label className={labelCls}>Price</label><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className={inputCls} /></div>
+            <div><label className={labelCls}>Category</label><AdminDropdown options={CATEGORY_OPTIONS} value={category} onChange={setCategory} /></div>
+            <div><label className={labelCls}>Status</label><AdminDropdown options={STATUS_OPTIONS} value={status} onChange={(v) => setStatus(v as Order["status"])} /></div>
+            <div>
+              <label className={labelCls}>Definition</label>
+              <textarea value={definition} onChange={(e) => setDefinition(e.target.value)} rows={3} className="w-full px-4 py-3 bg-[#140e11] border border-white/25 rounded-[10px] text-white outline-none focus:border-[#ca498c]/60 resize-none" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#140e11] border border-white/25 rounded-[15px] p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-sans font-bold text-[23px] text-white/75">Order Details</h2>
+            <button onClick={handleDelete} className="h-[48px] px-5 bg-[#140e11] border border-white/25 rounded-[15px] font-sans font-medium text-[20px] text-red-500 hover:border-red-500/40 transition-colors cursor-pointer">Delete Order</button>
+          </div>
+          <div className="flex flex-col gap-5">
+            <div><label className={labelCls}>Order ID</label><input value={orderId || "Will generate upon customer entry"} readOnly className={`${inputCls} opacity-60 cursor-not-allowed`} /></div>
+            <div><label className={labelCls}>Customer</label><input value={customer} onChange={(e) => handleCustomerChange(e.target.value)} placeholder="Enter customer name..." className={inputCls} /></div>
+            <div><label className={labelCls}>Payment Method</label><AdminDropdown options={PAYMENT_OPTIONS} value={payment} onChange={(v) => setPayment(v as "GCASH" | "CASH")} /></div>
+            <div>
+              <label className={labelCls}>Payment Date</label>
+              <div className="relative">
+                <input value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className={`${inputCls} pr-10`} />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50 pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Notes</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full px-4 py-3 bg-[#140e11] border border-white/25 rounded-[10px] text-white outline-none focus:border-[#ca498c]/60 resize-none" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-[#140e11] border border-white/25 rounded-[15px] p-6">
+        <h2 className="font-sans font-bold text-[23px] text-white/75 mb-1">Attach Product Image</h2>
+        <p className="font-sans text-[18px] text-white/75 mb-5">Click the heart icon on an image to set it as the primary cover photo for the shop.</p>
+        <div className="flex flex-wrap gap-4">
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={isUploading}
+            className="w-[195px] h-[177px] bg-[#140e11] border border-dashed border-white/25 rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {isUploading ? <Loader2 className="w-8 h-8 text-white/60 animate-spin" /> : <Upload className="w-10 h-10 text-white/60" />}
+            <span className="font-sans text-[14px] text-white/75">{isUploading ? "Uploading..." : "Click to upload image"}</span>
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+
+          {images.map((src, i) => {
+            const isPrimary = i === 0;
+            return (
+              <div key={i} className="relative group w-[166px] h-[177px] rounded-[12px] overflow-hidden border border-white/25">
+                <img src={src} alt="" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  <button type="button" onClick={() => handleSetPrimary(i)} className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer ${isPrimary ? "bg-[#ca498c] text-white" : "bg-black/60 text-white hover:bg-[#ca498c]/70"}`}>
+                    <Heart className={`w-4 h-4 ${isPrimary ? "fill-white text-white" : "text-white"}`} />
+                  </button>
+                  <button type="button" onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))} className="w-9 h-9 bg-black/60 rounded-full flex items-center justify-center hover:bg-red-600/80 cursor-pointer">
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+                {isPrimary && <span className="absolute bottom-2 left-2 bg-[#ca498c] text-white text-[10px] font-bold px-2 py-0.5 rounded-full pointer-events-none">MAIN</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
