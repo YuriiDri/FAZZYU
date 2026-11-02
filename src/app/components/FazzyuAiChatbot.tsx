@@ -177,10 +177,10 @@ export default function FazzyuAiChatbot() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="w-[90vw] sm:w-[420px] h-[550px] bg-[#140e11]/95 backdrop-blur-md border border-[#ca498c]/40 rounded-[24px] shadow-[0_15px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden mb-4"
+            className="w-[90vw] sm:w-[420px] h-[75vh] max-h-[850px] min-h-[650px] bg-[#140e11]/95 backdrop-blur-md border border-[#ca498c]/40 rounded-[24px] shadow-[0_15px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden mb-4"
           >
             {/* Header */}
-            <div className="bg-[#1e1418] border-b border-white/10 px-4 py-4 flex items-center justify-between">
+            <div className="shrink-0 bg-[#1e1418] border-b border-white/10 px-4 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#ca498c]/20 border border-[#ca498c]/50 flex items-center justify-center">
                   <Bot className="w-5 h-5 text-[#ca498c]" />
@@ -244,7 +244,7 @@ export default function FazzyuAiChatbot() {
             </div>
 
             {/* Suggested Prompts Pills */}
-            <div className="px-3 py-3 bg-black/20 border-t border-white/5 flex gap-2 overflow-x-auto [scrollbar-width:none]">
+            <div className="shrink-0 px-3 py-3 bg-black/20 border-t border-white/5 flex gap-2 overflow-x-auto [scrollbar-width:none]">
               {SUGGESTED_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
@@ -262,7 +262,7 @@ export default function FazzyuAiChatbot() {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="p-3 bg-[#1e1418] border-t border-white/10 flex items-center gap-2"
+              className="shrink-0 p-3 bg-[#1e1418] border-t border-white/10 flex items-center gap-2"
             >
               <input
                 type="text"
