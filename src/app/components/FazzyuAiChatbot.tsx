@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Send, X, Bot, User, MessageCircle, AlertCircle } from "lucide-react";
+import { Sparkles, Send, X, Bot, User, MessageCircle } from "lucide-react";
+
+declare const process: any;
 
 type Message = {
   id: string;
@@ -63,12 +65,14 @@ export default function FazzyuAiChatbot() {
     if (!isOpen) setIsOpen(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const apiKey =
+        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+        (typeof process !== "undefined" && process.env?.VITE_GEMINI_API_KEY);
+
       if (!apiKey) {
-        throw new Error("Missing VITE_GEMINI_API_KEY environment variable.");
+        throw new Error("Missing VITE_GEMINI_API_KEY in environment variables.");
       }
 
-      // Build conversation history for context
       const contentsHistory = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -82,7 +86,7 @@ export default function FazzyuAiChatbot() {
       });
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -96,6 +100,8 @@ export default function FazzyuAiChatbot() {
       );
 
       if (!response.ok) {
+        const errText = await response.text();
+        console.error("Gemini API Error Response:", errText);
         throw new Error(`API error ${response.status}`);
       }
 
