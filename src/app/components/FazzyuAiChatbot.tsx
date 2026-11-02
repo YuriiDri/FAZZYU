@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Send, X, Bot, User, MessageCircle } from "lucide-react";
 
-declare const process: any;
+// Fixes TypeScript error for import.meta.env in Vite
+interface ImportMetaEnv {
+  readonly VITE_GEMINI_API_KEY?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
 
 type Message = {
   id: string;
@@ -65,14 +72,15 @@ export default function FazzyuAiChatbot() {
     if (!isOpen) setIsOpen(true);
 
     try {
-      const apiKey =
-        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-        (typeof process !== "undefined" && process.env?.VITE_GEMINI_API_KEY);
+      // Direct literal access allows Vite to inject the value during build
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
       if (!apiKey) {
-        throw new Error("Missing VITE_GEMINI_API_KEY in environment variables.");
+        console.error("Missing VITE_GEMINI_API_KEY. Please ensure it is added in your .env file locally or under Vercel Settings -> Environment Variables.");
+        throw new Error("Missing VITE_GEMINI_API_KEY.");
       }
 
+      // Build conversation history for context
       const contentsHistory = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -86,7 +94,7 @@ export default function FazzyuAiChatbot() {
       });
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,8 +109,8 @@ export default function FazzyuAiChatbot() {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error("Gemini API Error Response:", errText);
-        throw new Error(`API error ${response.status}`);
+        console.error("Gemini API Error Response:", response.status, errText);
+        throw new Error(`API error ${response.status}: ${errText}`);
       }
 
       const data = await response.json();
@@ -113,7 +121,7 @@ export default function FazzyuAiChatbot() {
       const botMsg: Message = { id: `b-${Date.now()}`, sender: "bot", text: botReplyText };
       setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
-      console.error("Chatbot API error:", err);
+      console.error("Chatbot API execution error:", err);
       setMessages((prev) => [
         ...prev,
         {
