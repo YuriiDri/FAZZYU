@@ -20,6 +20,7 @@ export default function AdminAddOrderPage() {
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -38,7 +39,7 @@ export default function AdminAddOrderPage() {
         newUrls.push(data.publicUrl);
       }
       setImages((prev) => [...prev, ...newUrls]);
-      toast.success("Images uploaded to cloud.");
+      toast.success("Images uploaded to cloud storage.");
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to upload images.");
@@ -53,22 +54,54 @@ export default function AdminAddOrderPage() {
       toast.error("Please fill in Order Title and Price.");
       return;
     }
-    await addOrder({
-      id: `#YC-${Math.floor(1000 + Math.random() * 9000)}`,
-      title,
-      price: Number(price),
-      category,
-      status: status as Order["status"],
-      description,
-      definition: "",
-      customer: "General Customer", 
-      payment: "GCASH",
-      paymentDate: new Date().toLocaleDateString(),
-      notes: "",
-      images,
-    });
-    toast.success("Product created successfully.");
-    navigate("/admin/orders");
+
+    setIsSubmitting(true);
+    try {
+      const newProduct: Order = {
+        id: `#YC-${Math.floor(1000 + Math.random() * 9000)}`,
+        title: title.trim(),
+        price: Number(price),
+        category,
+        status: status as Order["status"],
+        description: description.trim(),
+        definition: "",
+        customer: "General Customer", 
+        payment: "GCASH",
+        paymentDate: new Date().toLocaleDateString(),
+        notes: "",
+        images,
+      };
+
+      // Directly insert into Supabase table matching schema
+      const dbPayload = {
+        id: newProduct.id,
+        title: newProduct.title,
+        price: newProduct.price,
+        category: newProduct.category,
+        status: newProduct.status,
+        description: newProduct.description,
+        images: newProduct.images,
+      };
+
+      const { error: dbError } = await supabase.from('orders').insert([dbPayload]);
+      
+      if (dbError) {
+        console.error("Supabase insert error:", dbError);
+        toast.error(`Database error: ${dbError.message}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      await addOrder(newProduct);
+
+      toast.success("Product created and published successfully!");
+      navigate("/admin/orders");
+    } catch (err) {
+      console.error("Unexpected save error:", err);
+      toast.error("Failed to save product.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -77,7 +110,7 @@ export default function AdminAddOrderPage() {
         Add New Product
       </h1>
       <p className="font-sans text-[18px] text-white/70 mb-6">
-        Create a new product for your catalog.
+        Create a new product for your catalog. This will instantly sync with your live shop.
       </p>
 
       <div className="flex gap-3 justify-end mb-6">
@@ -89,9 +122,11 @@ export default function AdminAddOrderPage() {
         </button>
         <button
           onClick={handleSave}
-          className="h-[56px] px-8 bg-[#ca498c] border border-white/25 rounded-[15px] font-sans font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors cursor-pointer"
+          disabled={isSubmitting}
+          className="h-[56px] px-8 bg-[#ca498c] border border-white/25 rounded-[15px] font-sans font-semibold text-[16px] text-white/90 hover:bg-[#b83d7a] transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
         >
-          + Add New Product
+          {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
+          {isSubmitting ? "Saving..." : "+ Add New Product"}
         </button>
       </div>
 

@@ -16,7 +16,7 @@ import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAddEditPage from "./pages/admin/AdminAddEditPage";
+import AdminAddEditPage from "./pages/admin/AdminAddEditPage"; // Imported list view component
 import AdminAddOrderPage from "./pages/admin/AdminAddOrderPage";
 import AdminEditOrderPage from "./pages/admin/AdminEditOrderPage";
 import AdminOrderListPage from "./pages/admin/AdminOrderListPage";
@@ -24,7 +24,7 @@ import AdminInventoryPage from "./pages/admin/AdminInventoryPage";
 import AdminAddNewItemPage from "./pages/admin/AdminAddNewItemPage";
 import AdminEditItemPage from "./pages/admin/AdminEditItemPage";
 import AdminGalleryPage from "./pages/admin/AdminGalleryPage";
-import AdminCustomMaterialsPage from "./pages/admin/AdminCustomMaterialsPage"; // Newly imported Custom Materials admin page
+import AdminCustomMaterialsPage from "./pages/admin/AdminCustomMaterialsPage";
 
 function WithNav({ children }: { children: React.ReactNode }) {
   return (
@@ -72,9 +72,16 @@ export default function App() {
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminShell><AdminDashboard /></AdminShell>} />
+          
+          {/* Sidebar "Add/Edit Order" links here and opens the list management view */}
           <Route path="/admin/orders" element={<AdminShell><AdminAddEditPage /></AdminShell>} />
+          
+          {/* Add product form route */}
           <Route path="/admin/orders/new" element={<AdminShell><AdminAddOrderPage /></AdminShell>} />
+          
+          {/* Edit product form route */}
           <Route path="/admin/orders/:id/edit" element={<AdminShell><AdminEditOrderPage /></AdminShell>} />
+          
           <Route path="/admin/order-list" element={<AdminShell><AdminOrderListPage /></AdminShell>} />
           <Route path="/admin/inventory" element={<AdminShell><AdminInventoryPage /></AdminShell>} />
           <Route path="/admin/inventory/new" element={<AdminShell><AdminAddNewItemPage /></AdminShell>} />

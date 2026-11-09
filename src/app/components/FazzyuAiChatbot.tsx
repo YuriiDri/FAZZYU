@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react"; // Ensure you import motion from framer-motion if "motion/react" errors
+import { Link } from "react-router";
+import { motion, AnimatePresence } from "motion/react"; 
 import { Sparkles, Send, X, Bot, User, MessageCircle } from "lucide-react";
+import { useAppData } from "@/app/context/AppDataContext";
 
 // Fixes TypeScript error for import.meta.env in Vite
 interface ImportMetaEnv {
   readonly VITE_GEMINI_API_KEY?: string;
 }
-
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
@@ -19,7 +20,7 @@ type Message = {
 
 const SUGGESTED_PROMPTS = [
   "Know more about the crafter 🌸",
-  "Know more about fuzzy wire bouquets 🌷",
+  "Show me Sunflower bouquets 🌻",
   "Free delivery areas in Las Piñas 🚚",
   "How to order & downpayment policy 📋",
 ];
@@ -40,13 +41,17 @@ FAZZYU CREATIONS KNOWLEDGE BASE:
 - Store Policies: 30% minimum downpayment required to start crafting. Completion takes 2 to 5 days. Payments accepted via GCASH and CASH. Final orders sync directly to Facebook Messenger (m.me/fazzyuu).
 - Tone & Style: Warm, welcoming, helpful, polite, soft floral aesthetic with cute emojis (🌸, 💖, 🌷, ✨). Keep answers clear, accurate, and concise.
 
+DYNAMIC PRODUCT LINKING RULE:
+When a user asks for specific flowers or gift items (e.g., sunflowers, roses, tulips, custom graduation bouquets), check the active store items provided in the context below. 
+Whenever possible, recommend the specific product and generate a clickable link using its exact ID or page path, formatted like this: [View Sunflower Bouquet](/shop/YOUR_ITEM_ID). If no exact match is found, link to the general catalog using [View our Shop Catalog](/shop).
+
 FORMATTING RULE: 
 ALWAYS separate your thoughts into short, easy-to-read paragraphs with a blank line between them. Use bullet points if listing multiple items. NEVER reply in one single giant block of text.
 `;
 
-// Helper function to render **bold text** as strong HTML tags
-function parseBoldText(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+function parseMessageText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
+  
   return parts.map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
@@ -55,11 +60,42 @@ function parseBoldText(text: string) {
         </strong>
       );
     }
+    
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      const label = linkMatch[1];
+      const url = linkMatch[2];
+      
+      if (url.startsWith("/")) {
+        return (
+          <Link 
+            key={index} 
+            to={url} 
+            className="inline-block mt-1 px-3 py-1 bg-[#ca498c]/20 border border-[#ca498c]/50 rounded-full text-[#ca498c] hover:bg-[#ca498c] hover:text-white font-bold transition-colors shadow-sm"
+          >
+            {label}
+          </Link>
+        );
+      }
+      return (
+        <a 
+          key={index} 
+          href={url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-block mt-1 px-3 py-1 bg-[#ca498c]/20 border border-[#ca498c]/50 rounded-full text-[#ca498c] hover:bg-[#ca498c] hover:text-white font-bold transition-colors shadow-sm"
+        >
+          {label}
+        </a>
+      );
+    }
+    
     return part;
   });
 }
 
 export default function FazzyuAiChatbot() {
+  const { orders } = useAppData();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -71,10 +107,34 @@ export default function FazzyuAiChatbot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Ref for horizontal scrolling drag support on desktop
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isOpen]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    if (!sliderRef.current) return;
+    setStartX(e.pageX - sliderRef.current.offsetLeft);
+    setScrollLeft(sliderRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => setIsDragging(false);
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    sliderRef.current.scrollLeft = scrollLeft - walk;
+  };
 
   async function handleSendMessage(textToSend?: string) {
     const query = (textToSend || input).trim();
@@ -94,6 +154,12 @@ export default function FazzyuAiChatbot() {
         throw new Error("Missing VITE_GEMINI_API_KEY.");
       }
 
+      const liveInventoryContext = orders.length > 0 
+        ? `\n\nCURRENT AVAILABLE STORE PRODUCTS IN DATABASE:\n` + orders.map(o => `- Title: "${o.title}", Category: ${o.category}, Price: ₱${o.price}, Link Path: /shop/${o.id}`).join('\n')
+        : `\n\nCURRENT STORE PRODUCTS: No items loaded yet. Direct users to /shop.`;
+
+      const enhancedSystemInstruction = SYSTEM_INSTRUCTION + liveInventoryContext;
+
       const contentsHistory = messages
         .filter((m) => m.id !== "welcome")
         .map((m) => ({
@@ -106,7 +172,6 @@ export default function FazzyuAiChatbot() {
         parts: [{ text: query }],
       });
 
-      // 🔄 AUTOMATIC RETRY LOGIC (Tries 3 times before failing)
       let response: Response | null = null;
       let retries = 3;
       let delay = 1000;
@@ -120,7 +185,7 @@ export default function FazzyuAiChatbot() {
             body: JSON.stringify({
               contents: contentsHistory,
               systemInstruction: {
-                parts: [{ text: SYSTEM_INSTRUCTION }],
+                parts: [{ text: enhancedSystemInstruction }],
               },
             }),
           }
@@ -130,10 +195,10 @@ export default function FazzyuAiChatbot() {
           retries--;
           if (retries === 0) break;
           await new Promise((resolve) => setTimeout(resolve, delay));
-          delay *= 1.5; // Exponential backoff wait time
+          delay *= 1.5;
           continue;
         }
-        break; // Success! Exit the retry loop.
+        break;
       }
 
       if (!response || !response.ok) {
@@ -151,9 +216,7 @@ export default function FazzyuAiChatbot() {
       
     } catch (err) {
       console.error("Chatbot API execution error:", err);
-      
-      // 🛡️ DEMO SAVER FALLBACK: If Google fails, output this professional canned response instead of an error.
-      const fallbackText = "I'm receiving a very high volume of messages right now! 🌸\n\nTo answer quickly: Fazzyu Creations requires a 30% downpayment via GCash, takes 2-5 days to handcraft, and offers free delivery in Pulanglupa Uno and Naga Road.\n\nPlease message Yuri directly on Facebook for urgent custom orders! 💖";
+      const fallbackText = "I'm receiving a very high volume of messages right now! 🌸\n\nYou can browse our entire collection directly here: [View our Shop Catalog](/shop)\n\nPlease message Yuri directly on Facebook for urgent custom orders! 💖";
       
       setMessages((prev) => [
         ...prev,
@@ -169,7 +232,7 @@ export default function FazzyuAiChatbot() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[9999] flex flex-col items-end pointer-events-none">
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -177,7 +240,7 @@ export default function FazzyuAiChatbot() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="w-[90vw] sm:w-[420px] h-[75vh] max-h-[850px] min-h-[650px] bg-[#140e11]/95 backdrop-blur-md border border-[#ca498c]/40 rounded-[24px] shadow-[0_15px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden mb-4"
+            className="w-[calc(100vw-32px)] sm:w-[420px] h-[calc(100vh-140px)] max-h-[750px] min-h-[450px] bg-[#140e11]/95 backdrop-blur-md border border-[#ca498c]/40 rounded-[24px] shadow-[0_15px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden mb-4 pointer-events-auto"
           >
             {/* Header */}
             <div className="shrink-0 bg-[#1e1418] border-b border-white/10 px-4 py-4 flex items-center justify-between">
@@ -186,7 +249,7 @@ export default function FazzyuAiChatbot() {
                   <Bot className="w-5 h-5 text-[#ca498c]" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-base text-white font-bold flex items-center gap-1.5">
+                  <h3 className="font-serif text-sm sm:text-base text-white font-bold flex items-center gap-1.5">
                     Fazzyu AI Assistant <Sparkles className="w-4 h-4 text-[#ca498c]" />
                   </h3>
                   <p className="text-[11px] text-white/60 font-sans">Official Yuri's Craft Guide</p>
@@ -201,7 +264,7 @@ export default function FazzyuAiChatbot() {
             </div>
 
             {/* Chat Body */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-4 font-sans text-sm">
+            <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-4 font-sans text-sm">
               <AnimatePresence initial={false}>
                 {messages.map((m) => (
                   <motion.div
@@ -225,7 +288,7 @@ export default function FazzyuAiChatbot() {
                           : "bg-black/40 border border-white/10 text-white/90 rounded-tl-none"
                       }`}
                     >
-                      {parseBoldText(m.text)}
+                      {parseMessageText(m.text)}
                     </div>
                   </motion.div>
                 ))}
@@ -243,13 +306,22 @@ export default function FazzyuAiChatbot() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Suggested Prompts Pills */}
-            <div className="shrink-0 px-3 py-3 bg-black/20 border-t border-white/5 flex gap-2 overflow-x-auto [scrollbar-width:none]">
+            {/* Suggested Prompts Pills (Draggable & Scrollable) */}
+            <div 
+              ref={sliderRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className={`shrink-0 px-3 py-3 bg-black/20 border-t border-white/5 flex gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+            >
               {SUGGESTED_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSendMessage(prompt)}
-                  className="px-3 py-1.5 bg-white/5 hover:bg-[#ca498c]/30 border border-white/10 hover:border-[#ca498c]/60 rounded-full text-xs text-white/80 whitespace-nowrap transition-all cursor-pointer flex-shrink-0"
+                  onClick={() => {
+                    if (!isDragging) handleSendMessage(prompt);
+                  }}
+                  className="px-4 py-2 bg-white/5 hover:bg-[#ca498c]/30 border border-white/10 hover:border-[#ca498c]/60 rounded-full text-xs text-white/80 whitespace-nowrap transition-all cursor-pointer inline-block"
                 >
                   {prompt}
                 </button>
@@ -285,12 +357,13 @@ export default function FazzyuAiChatbot() {
 
       {/* Floating Bottom Right Launcher Bar */}
       <motion.div
-        whileHover={{ width: 420, scale: 1.02 }}
-        className="relative bg-[#140e11]/90 backdrop-blur-md border border-[#ca498c]/50 rounded-full shadow-[0_6px_30px_rgba(209,126,165,0.4)] p-1.5 flex items-center gap-2 cursor-pointer transition-all w-[300px] sm:w-[340px]"
-        onClick={() => setIsOpen((v) => !v)}
+        className={`pointer-events-auto relative bg-[#140e11]/90 backdrop-blur-md border border-[#ca498c]/50 rounded-full shadow-[0_6px_30px_rgba(209,126,165,0.4)] p-1.5 flex items-center gap-2 cursor-pointer transition-all ${
+          isOpen ? "opacity-0 scale-95 h-0 overflow-hidden border-none p-0 mt-0" : "w-[60px] sm:w-[340px] opacity-100"
+        }`}
+        onClick={() => setIsOpen(true)}
       >
-        <div className="w-10 h-10 rounded-full bg-[#ca498c] flex items-center justify-center flex-shrink-0 shadow-md">
-          <Sparkles className="w-4 h-4 text-white animate-pulse" />
+        <div className="w-12 h-12 sm:w-10 sm:h-10 rounded-full bg-[#ca498c] flex items-center justify-center flex-shrink-0 shadow-md">
+          <Sparkles className="w-5 h-5 sm:w-4 sm:h-4 text-white animate-pulse" />
         </div>
 
         <input
@@ -298,10 +371,10 @@ export default function FazzyuAiChatbot() {
           readOnly
           value={input}
           placeholder="Ask AI about Yuri's Craft..."
-          className="bg-transparent text-sm text-white placeholder:text-white/60 outline-none w-full cursor-pointer pointer-events-none"
+          className="hidden sm:block bg-transparent text-sm text-white placeholder:text-white/60 outline-none w-full cursor-pointer pointer-events-none"
         />
 
-        <div className="pr-3 text-white/60">
+        <div className="hidden sm:block pr-3 text-white/60">
           <MessageCircle className="w-5 h-5" />
         </div>
       </motion.div>

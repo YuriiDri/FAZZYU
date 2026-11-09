@@ -1,12 +1,12 @@
 import { useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Upload, X, Calendar, Heart } from "lucide-react";
+import { Upload, X, Calendar, Heart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAppData, type Order } from "@/app/context/AppDataContext";
+import { useAppData, supabase, type Order } from "@/app/context/AppDataContext";
 import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
 
 const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
-const CATEGORY_OPTIONS = ["Bouquet", "Themed", "Dolls", "Craft"];
+const CATEGORY_OPTIONS = ["Bouquets", "Themed", "Dolls", "Crafts"];
 const PAYMENT_OPTIONS = ["GCASH", "CASH"];
 
 const inputCls =
@@ -16,45 +16,32 @@ const labelCls =
 
 export default function AdminEditOrderPage() {
   const { id: rawId } = useParams<{ id: string }>();
-  const { orders, updateOrder, deleteOrder } = useAppData();
+  const { orders, updateOrder, deleteOrder, addOrder } = useAppData();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const id = rawId ? decodeURIComponent(rawId) : "";
-  const order = orders.find((o) => o.id === id);
+  const order = id ? orders.find((o) => o.id === id) : undefined;
 
   const [title, setTitle] = useState(order?.title ?? "");
   const [price, setPrice] = useState(String(order?.price ?? ""));
-  const [category, setCategory] = useState(order?.category ?? "Bouquet");
+  const [category, setCategory] = useState(order?.category ?? "Bouquets");
   const [status, setStatus] = useState<Order["status"]>(order?.status ?? "Available");
   const [definition, setDefinition] = useState(order?.definition ?? "");
+  const [description, setDescription] = useState(order?.description ?? ""); 
   const [customer, setCustomer] = useState(order?.customer ?? "");
   
-  // Keep existing Order ID if it already has one; otherwise leave blank until customer is entered
   const [orderId, setOrderId] = useState(
-    order?.id && order.id.startsWith("#YC-") ? order.id : ""
+    order?.id && order.id.startsWith("#YC-") ? order.id : `#YC-${Math.floor(1000 + Math.random() * 9000)}`
   );
 
   const [payment, setPayment] = useState<"GCASH" | "CASH">(order?.payment ?? "GCASH");
-  const [paymentDate, setPaymentDate] = useState(order?.paymentDate ?? "");
+  const [paymentDate, setPaymentDate] = useState(order?.paymentDate ?? new Date().toLocaleDateString());
   const [notes, setNotes] = useState(order?.notes ?? "");
   const [images, setImages] = useState<string[]>(order?.images ?? []);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!order) {
-    return (
-      <div className="text-white text-center py-20">
-        <p className="font-['Roboto',sans-serif] text-[20px]">Order not found.</p>
-        <button
-          onClick={() => navigate("/admin/orders")}
-          className="mt-4 text-[#ca498c] underline cursor-pointer"
-        >
-          Back to orders
-        </button>
-      </div>
-    );
-  }
-
-  // Auto-generate Order ID when customer name is typed for a product
   function handleCustomerChange(value: string) {
     setCustomer(value);
     if (value.trim() && !orderId) {
@@ -62,19 +49,33 @@ export default function AdminEditOrderPage() {
     }
   }
 
-  function handleFiles(files: FileList | null) {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result)
-          setImages((prev) => [...prev, e.target!.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `products/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+        newUrls.push(data.publicUrl);
+      }
+      setImages((prev) => [...prev, ...newUrls]);
+      toast.success("Images uploaded to cloud.");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload images.");
+    } finally {
+      setIsUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
-  // Move selected photo to position 0 so it becomes the main cover image
   function handleSetPrimary(idx: number) {
     setImages((prev) => {
       const updated = [...prev];
@@ -85,31 +86,79 @@ export default function AdminEditOrderPage() {
     toast.success("Set as main product image.");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) {
       toast.error("Please fill in Order Title.");
       return;
     }
-    updateOrder(order.id, {
-      id: orderId || order.id,
-      title,
-      price: Number(price),
-      category,
-      status,
-      definition,
-      customer,
-      payment,
-      paymentDate,
-      notes,
-      images,
-    });
-    toast.success("Order updated.");
-    navigate("/admin/orders");
+
+    setIsSubmitting(true);
+    try {
+      const targetId = orderId || order?.id || `#YC-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const fullPayload: Order = {
+        id: targetId,
+        title: title.trim(),
+        price: Number(price),
+        category,
+        status,
+        description: description.trim(),
+        definition,
+        customer: customer || "General Customer",
+        payment,
+        paymentDate,
+        notes,
+        images,
+      };
+
+      // Clean payload strictly matching Supabase table columns to prevent rejection
+      const dbPayload = {
+        id: targetId,
+        title: title.trim(),
+        price: Number(price),
+        category,
+        status,
+        description: description.trim(),
+        images,
+      };
+
+      if (order) {
+        const { error: dbError } = await supabase.from('orders').update(dbPayload).eq('id', order.id);
+        if (dbError) {
+          console.error("Supabase update error:", dbError);
+          toast.error(`Database error: ${dbError.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        updateOrder(order.id, fullPayload);
+        toast.success("Order updated successfully.");
+      } else {
+        const { error: dbError } = await supabase.from('orders').insert([dbPayload]);
+        if (dbError) {
+          console.error("Supabase insert error:", dbError);
+          toast.error(`Database error: ${dbError.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        addOrder(fullPayload); 
+        toast.success("New product added successfully!");
+      }
+      navigate("/admin/orders");
+    } catch (err) {
+      console.error("Save error:", err);
+      toast.error("Failed to save product to database.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleDelete() {
-    deleteOrder(order.id);
-    toast.success("Order deleted.");
+    if (order) {
+        deleteOrder(order.id);
+        toast.success("Order deleted.");
+    }
     navigate("/admin/orders");
   }
 
@@ -119,14 +168,14 @@ export default function AdminEditOrderPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="font-['Crimson_Text',serif] text-[64px] text-white leading-tight">
-            Edit Order
+            {order ? "Edit Order" : "Add New Product"}
           </h1>
           <p className="font-['Roboto',sans-serif] text-[24px] text-white leading-snug">
-            Update an existing order.
+            {order ? "Update an existing order." : "Create a new product or order catalog item."}
           </p>
         </div>
 
-        {/* Cancel + Save Order */}
+        {/* Cancel + Save Product Button */}
         <div className="flex items-center gap-3 mt-2">
           <button
             onClick={() => navigate(-1)}
@@ -136,9 +185,11 @@ export default function AdminEditOrderPage() {
           </button>
           <button
             onClick={handleSave}
-            className="h-[72px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[22px] text-[rgba(255,255,255,0.74)] hover:bg-[#b83d7a] transition-colors cursor-pointer"
+            disabled={isSubmitting}
+            className="h-[72px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[22px] text-white hover:bg-[#b83d7a] transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
-            Save Order
+            {isSubmitting && <Loader2 className="w-6 h-6 animate-spin" />}
+            {isSubmitting ? "Saving..." : (order ? "Save Order" : "+ Add New Product")}
           </button>
         </div>
       </div>
@@ -156,15 +207,17 @@ export default function AdminEditOrderPage() {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Sunflower Fuzzy Bouquet"
                 className={inputCls}
               />
             </div>
             <div>
-              <label className={labelCls}>Price</label>
+              <label className={labelCls}>Price (₱)</label>
               <input
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
+                placeholder="0"
                 className={inputCls}
               />
             </div>
@@ -193,31 +246,42 @@ export default function AdminEditOrderPage() {
                 className="w-full px-4 py-3 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 resize-none"
               />
             </div>
+            <div>
+              <label className={labelCls}>Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Product description..."
+                className="w-full px-4 py-3 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 resize-none"
+              />
+            </div>
           </div>
         </div>
 
         {/* Right: Order Details */}
         <div className="bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6">
-          {/* Panel header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-['Roboto',sans-serif] font-bold text-[23px] text-white/75">
               Order Details
             </h2>
-            <button
-              onClick={handleDelete}
-              className="h-[48px] px-5 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[20px] text-[rgba(233,44,44,0.74)] hover:border-red-500/40 transition-colors whitespace-nowrap cursor-pointer"
-            >
-              Delete Order
-            </button>
+            {order && (
+              <button
+                onClick={handleDelete}
+                className="h-[48px] px-5 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[20px] text-[rgba(233,44,44,0.74)] hover:border-red-500/40 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                Delete Order
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col gap-5">
             <div>
               <label className={labelCls}>Order ID</label>
               <input
-                value={orderId || "Will generate upon customer entry"}
-                readOnly
-                className={`${inputCls} opacity-60 cursor-not-allowed`}
+                value={orderId}
+                onChange={(e) => setOrderId(e.target.value)}
+                className={inputCls}
               />
             </div>
             <div>
@@ -273,11 +337,12 @@ export default function AdminEditOrderPage() {
         <div className="flex flex-wrap gap-4">
           <button
             onClick={() => fileRef.current?.click()}
-            className="w-[195px] h-[177px] bg-[#140e11] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer"
+            disabled={isUploading}
+            className="w-[195px] h-[177px] bg-[#140e11] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Upload className="w-10 h-10 text-white/60" />
+            {isUploading ? <Loader2 className="w-8 h-8 text-white/60 animate-spin" /> : <Upload className="w-10 h-10 text-white/60" />}
             <span className="font-['Roboto',sans-serif] text-[14px] text-white/75">
-              Click to upload image
+              {isUploading ? "Uploading..." : "Click to upload image"}
             </span>
           </button>
           <input
