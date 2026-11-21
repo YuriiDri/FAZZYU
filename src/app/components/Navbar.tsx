@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, User, Menu, X, ArrowRight } from "lucide-react";
-import { useAppData } from "@/app/context/AppDataContext";
+import { Search, User, Menu, X, ArrowRight, LogOut } from "lucide-react";
+import { toast } from "sonner";
+import { useAppData, supabase } from "@/app/context/AppDataContext";
 
 import imgLogo from "@/imports/HomePage/b34d701fd1ceed4106f0f96c9254084af23d9951.png";
 
@@ -15,11 +16,12 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const location = useLocation();
-  const { orders } = useAppData(); // Pulls all shop items directly
+  const { orders } = useAppData();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [customerUser, setCustomerUser] = useState<any>(null);
 
   useEffect(() => {
     function onScroll() {
@@ -29,12 +31,33 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Listen to Supabase customer session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setCustomerUser(data.session?.user ?? null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setCustomerUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleCustomerLogout() {
+    await supabase.auth.signOut();
+    toast.success("Signed out successfully.");
+  }
+
   function isActive(path: string) {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
   }
 
-  // Filter items across the entire app
   const searchResults = query.trim()
     ? orders.filter(
         (item) =>
@@ -42,6 +65,10 @@ export default function Navbar() {
           item.category?.toLowerCase().includes(query.toLowerCase())
       )
     : [];
+
+  const displayName =
+    customerUser?.user_metadata?.full_name ||
+    customerUser?.email?.split("@")[0];
 
   return (
     <>
@@ -91,7 +118,7 @@ export default function Navbar() {
           </div>
 
           {/* Right icons */}
-          <div className="ml-auto flex items-center gap-5">
+          <div className="ml-auto flex items-center gap-4">
             {/* Desktop Search Button */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -102,14 +129,32 @@ export default function Navbar() {
               <Search className="w-5 h-5" strokeWidth={2} />
             </button>
 
-            {/* Admin Login Button */}
-            <Link
-              to="/login"
-              aria-label="Admin login"
-              className="hidden md:flex text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors duration-200 p-1"
-            >
-              <User className="w-5 h-5" strokeWidth={2} />
-            </Link>
+            {/* Customer Account / Login */}
+            {customerUser ? (
+              <div className="hidden md:flex items-center gap-3 bg-white/5 border border-[#E8A0BE]/25 rounded-full pl-3.5 pr-2 py-1">
+                <span className="text-xs font-medium text-[#E8A0BE] max-w-[120px] truncate">
+                  Hi, {displayName}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCustomerLogout}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  className="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                aria-label="Customer login"
+                title="Customer Login"
+                className="hidden md:flex items-center gap-1.5 text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors duration-200 p-1"
+              >
+                <User className="w-5 h-5" strokeWidth={2} />
+              </Link>
+            )}
 
             {/* Mobile hamburger */}
             <button
@@ -127,7 +172,6 @@ export default function Navbar() {
       <AnimatePresence>
         {searchOpen && (
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-start pt-24 px-4">
-            {/* Dark Backdrop Overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -139,7 +183,6 @@ export default function Navbar() {
               className="absolute inset-0 bg-black/80 backdrop-blur-md cursor-pointer"
             />
 
-            {/* Search Input Box */}
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -147,7 +190,6 @@ export default function Navbar() {
               transition={{ duration: 0.2 }}
               className="relative z-10 w-full max-w-[620px] bg-[#140e11] border border-[#E8A0BE]/30 rounded-[20px] shadow-[0_20px_60px_rgba(0,0,0,0.9)] overflow-hidden"
             >
-              {/* Header Input Area */}
               <div className="flex items-center gap-3 px-6 h-16 border-b border-[#E8A0BE]/15">
                 <Search className="w-5 h-5 text-[#E8A0BE] flex-shrink-0" />
                 <input
@@ -169,7 +211,6 @@ export default function Navbar() {
                 </button>
               </div>
 
-              {/* Dynamic Live Results Container */}
               <div className="max-h-[380px] overflow-y-auto p-3 flex flex-col gap-1">
                 {query.trim() === "" ? (
                   <p className="text-center py-8 text-sm text-white/40 font-sans">
@@ -258,25 +299,41 @@ export default function Navbar() {
                 ))}
               </nav>
 
-              <div className="mt-auto flex items-center gap-4 pt-6 border-t border-[#E8A0BE]/10">
+              <div className="mt-auto flex items-center justify-between pt-6 border-t border-[#E8A0BE]/10">
                 <button
                   onClick={() => {
                     setDrawerOpen(false);
                     setSearchOpen(true);
                   }}
-                  className="text-[#F5F0F0] cursor-pointer hover:text-[#E8A0BE] transition-colors"
+                  className="text-[#F5F0F0] cursor-pointer hover:text-[#E8A0BE] transition-colors p-1"
                   aria-label="Search"
                 >
                   <Search className="w-5 h-5" />
                 </button>
-                <Link
-                  to="/login"
-                  onClick={() => setDrawerOpen(false)}
-                  className="text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors"
-                  aria-label="Admin login"
-                >
-                  <User className="w-5 h-5" />
-                </Link>
+
+                {customerUser ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      handleCustomerLogout();
+                    }}
+                    className="flex items-center gap-2 text-xs text-[#E8A0BE] font-medium cursor-pointer"
+                  >
+                    <span>Sign Out ({displayName})</span>
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setDrawerOpen(false)}
+                    className="flex items-center gap-2 text-sm text-[#F5F0F0] hover:text-[#E8A0BE] transition-colors"
+                    aria-label="Customer login"
+                  >
+                    <User className="w-5 h-5" />
+                    <span>Sign In</span>
+                  </Link>
+                )}
               </div>
             </motion.div>
           </>

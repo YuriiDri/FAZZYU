@@ -99,8 +99,7 @@ export default function CustomOrderPage() {
   }
 
   const materialsPrice = customizedMaterials.reduce((sum, mat) => sum + (mat.price * (quantities[mat.id] || 0)), 0);
-  const basePrice = 150;
-  const totalPrice = basePrice + materialsPrice;
+  const totalPrice = materialsPrice;
 
   // Helper: Convert Blob to Base64 to avoid broken image URLs
   function blobToBase64(blob: Blob): Promise<string> {

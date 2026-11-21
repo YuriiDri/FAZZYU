@@ -7,7 +7,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthed) {
-      navigate("/login", { replace: true });
+      navigate("/admin/login", { replace: true });
     }
   }, [isAuthed, navigate]);
 

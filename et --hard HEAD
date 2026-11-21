@@ -1,0 +1,26 @@
+[33m91b430b6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m custom order chatbot and ai generation
+[33m87e2db7a[m photobooth draft
+[33maded2b60[m new photobooth and chatbot ui fix(CP)
+[33m2c54d3d3[m Fixed Chatbot Format v2
+[33m83b4f2c3[m Fixed Chatbot Format
+[33m6d93123c[m Final homepage chatbot
+[33m7c6b57c9[m Fix process typing error in FazzyuAiChatbot
+[33md59b5f3f[m Add Fazzyu AI Chatbot to homepage
+[33m38906026[m custom page v3
+[33m888226cf[m custom page v2 with image
+[33mfc814689[m custom page v2
+[33m44e363e9[m custom page v1
+[33m2c6d3fe1[m Enable global Supabase cloud sync for gallery images
+[33m7fdc244c[m final try to fix gallery
+[33m2b7aad54[m final fix for gallery v2
+[33m6cfb9a59[m Add About page and update Rules and Regulations
+[33m48dee99e[m Fixed Complete full Supabase cloud migration for orders, inventory, and gallery
+[33m595ea1c7[m Complete full Supabase cloud migration for orders, inventory, and gallery
+[33mbed7f7da[m Update admin add order page and complete Supabase migration
+[33m52dbc3d2[m Connect app to Supabase backend part 2
+[33md1602bcd[m Connect app to Supabase backend
+[33m838d94e6[m Cleanup opacity hero section
+[33m53a4c454[m Clean up merge conflict and deploy final update
+[33m32eb38d3[m Add photobooth and favicon updates
+[33m75242165[m Final photobooth and favicon updates
+[33me63a3699[m Initial commit

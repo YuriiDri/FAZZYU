@@ -15,8 +15,9 @@ import GalleryPage from "./pages/GalleryPage";
 import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
 
+import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAddEditPage from "./pages/admin/AdminAddEditPage"; // Imported list view component
+import AdminAddEditPage from "./pages/admin/AdminAddEditPage";
 import AdminAddOrderPage from "./pages/admin/AdminAddOrderPage";
 import AdminEditOrderPage from "./pages/admin/AdminEditOrderPage";
 import AdminOrderListPage from "./pages/admin/AdminOrderListPage";
@@ -67,21 +68,17 @@ export default function App() {
           <Route path="/gallery" element={<WithNav><GalleryPage /></WithNav>} />
           <Route path="/about" element={<WithNav><AboutPage /></WithNav>} />
 
-          {/* Login standalone */}
+          {/* Customer Login / Sign Up */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Admin routes */}
+          {/* Hidden Admin Login (Direct URL Only) */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+
+          {/* Protected Admin routes */}
           <Route path="/admin" element={<AdminShell><AdminDashboard /></AdminShell>} />
-          
-          {/* Sidebar "Add/Edit Order" links here and opens the list management view */}
           <Route path="/admin/orders" element={<AdminShell><AdminAddEditPage /></AdminShell>} />
-          
-          {/* Add product form route */}
           <Route path="/admin/orders/new" element={<AdminShell><AdminAddOrderPage /></AdminShell>} />
-          
-          {/* Edit product form route */}
           <Route path="/admin/orders/:id/edit" element={<AdminShell><AdminEditOrderPage /></AdminShell>} />
-          
           <Route path="/admin/order-list" element={<AdminShell><AdminOrderListPage /></AdminShell>} />
           <Route path="/admin/inventory" element={<AdminShell><AdminInventoryPage /></AdminShell>} />
           <Route path="/admin/inventory/new" element={<AdminShell><AdminAddNewItemPage /></AdminShell>} />

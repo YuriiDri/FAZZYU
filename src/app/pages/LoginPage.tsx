@@ -1,161 +1,238 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
-import { Home, ShieldCheck } from "lucide-react";
+import { Home, ShieldCheck, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/app/context/AppDataContext";
+import { TurnstileWidget } from "@/app/components/TurnstileWidget";
 
 import imgLogo from "@/imports/LoginPage/b34d701fd1ceed4106f0f96c9254084af23d9951.png";
 import imgPetals from "@/imports/image-1.png";
 
+const WORKER_URL = "https://withered-boat-9829.gata-andrie.workers.dev";
+
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [resetCounter, setResetCounter] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // ── DEFINE YOUR ADMIN CREDENTIALS HERE ──
-    const ADMIN_USERNAME = "yuri";
-    const ADMIN_PASSWORD = "dadangcutie";
-
-    // 1. Check if fields are empty
-    if (!username.trim() || !password.trim()) {
-      toast.error("Please enter your username and password.");
+    if (!email.trim() || !password.trim() || (isSignUp && !fullName.trim())) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
-    // 2. Validate credentials
-    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
-      toast.error("Invalid username or password.");
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      toast.error("Please complete the Cloudflare security check.");
       return;
     }
 
-    // 3. Success logic
-    toast.success("Logging in…");
-    localStorage.setItem("yc_admin_token", "admin");
-    setTimeout(() => navigate("/admin"), 1200);
+    setIsLoading(true);
+
+    try {
+      // 1. Verify Turnstile & rate limits via Cloudflare Worker
+      const secRes = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "verify_security",
+          turnstileToken,
+        }),
+      });
+
+      const secData = await secRes.json();
+      if (!secRes.ok || !secData.success) {
+        setResetCounter((c) => c + 1);
+        throw new Error(secData.error || "Security verification failed.");
+      }
+
+      // 2. Authenticate customer via Supabase Auth
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: { full_name: fullName.trim() },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          toast.success("Account created! Welcome to Fazzyu Creations 🌸");
+          navigate("/shop");
+        } else {
+          toast.success(
+            "Account created! Please check your email to confirm, then log in."
+          );
+          setIsSignUp(false);
+          setResetCounter((c) => c + 1);
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) throw error;
+
+        toast.success("Welcome back! 🌸");
+        navigate("/shop");
+      }
+    } catch (err: any) {
+      setResetCounter((c) => c + 1);
+      toast.error(err.message || "Authentication failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center">
-      {/* Petal background image */}
+    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center py-16">
       <img
         src={imgPetals}
         alt=""
         aria-hidden
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
-      {/* Dark overlay to maintain legibility */}
       <div className="absolute inset-0 bg-[#0d0a0b]/80" />
 
       {/* Home button */}
       <Link
         to="/"
         aria-label="Return home"
-        className="absolute top-10 right-10 text-[#e6e6e6] hover:text-[#d17ea5] transition-colors duration-200 z-20"
+        className="absolute top-8 right-8 text-[#e6e6e6] hover:text-[#d17ea5] transition-colors duration-200 z-20"
       >
-        <Home className="w-[50px] h-[50px]" strokeWidth={1.4} />
+        <Home className="w-10 h-10" strokeWidth={1.5} />
       </Link>
 
       {/* Logo */}
-      <div className="absolute top-[22px] left-10 w-[202px] h-[72px] z-20">
-        <img src={imgLogo} alt="Yuri's Craft" className="h-full w-full object-contain object-left" />
-      </div>
-
-      {/* Login panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-        className="relative z-10 w-full max-w-[600px] mx-6"
+      <Link
+        to="/"
+        className="absolute top-6 left-8 w-[180px] h-[64px] z-20"
       >
-        {/* Panel glow border */}
-        <div className="absolute inset-0 rounded-[20px] border-[3px] border-[#fdd0d0]/30 shadow-[0px_4px_50px_20px_rgba(204,120,159,0.3)]" />
-        <div className="absolute inset-0 rounded-[20px] bg-[#8b596e]/10" />
+        <img
+          src={imgLogo}
+          alt="Fazzyu Creations"
+          className="h-full w-full object-contain object-left"
+        />
+      </Link>
 
-        <div className="relative z-10 px-10 py-14">
-          <h2 className="font-['Crimson_Text',serif] not-italic text-[55px] text-white mb-3">
-            Welcome back!
+      {/* Customer Login / Sign Up Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative z-10 w-full max-w-[500px] mx-4"
+      >
+        <div className="absolute inset-0 rounded-[20px] border-2 border-[#fdd0d0]/30 shadow-[0px_4px_50px_15px_rgba(204,120,159,0.25)]" />
+        <div className="absolute inset-0 rounded-[20px] bg-[#1a1115]/90 backdrop-blur-md" />
+
+        <div className="relative z-10 px-8 py-10">
+          <div className="flex items-center gap-2 text-[#E8A0BE] text-xs uppercase tracking-widest font-semibold mb-2">
+            <Sparkles className="w-4 h-4" /> Customer Portal
+          </div>
+          <h2 className="font-['Crimson_Text',serif] text-4xl text-white mb-2">
+            {isSignUp ? "Create an Account" : "Welcome Back!"}
           </h2>
-          <p className="font-['Roboto',sans-serif] font-normal text-[23px] text-white mb-10">
-            Please login to your admin account.
+          <p className="font-['Roboto',sans-serif] text-sm text-white/75 mb-7">
+            {isSignUp
+              ? "Sign up to save custom bouquet designs and place orders faster."
+              : "Sign in to your Fazzyu Creations customer account."}
           </p>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {/* Username */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {isSignUp && (
+              <div>
+                <label className="text-sm text-white/90 block mb-1.5">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full h-12 rounded-[10px] border border-[#f3a3a5]/50 bg-black/30 px-4 text-base text-white outline-none focus:border-[#d17ea5] transition-all placeholder:text-white/30"
+                  placeholder="Enter your full name"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="font-['Roboto',sans-serif] font-normal text-[23px] text-white block mb-2">
-                Username
+              <label className="text-sm text-white/90 block mb-1.5">
+                Email Address
               </label>
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                className="w-full h-[69px] rounded-[10px] border border-[#f3a3a5]/70 bg-transparent px-5 font-['Roboto',sans-serif] text-[22px] text-white outline-none focus:border-[#d17ea5] focus:shadow-[0_0_0_2px_rgba(209,126,165,0.3)] transition-all duration-200 placeholder:text-white/30"
-                placeholder="Enter your username"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                className="w-full h-12 rounded-[10px] border border-[#f3a3a5]/50 bg-black/30 px-4 text-base text-white outline-none focus:border-[#d17ea5] transition-all placeholder:text-white/30"
+                placeholder="you@example.com"
               />
             </div>
 
-            {/* Password */}
             <div>
-              <label className="font-['Roboto',sans-serif] font-normal text-[23px] text-white block mb-2">
+              <label className="text-sm text-white/90 block mb-1.5">
                 Password
               </label>
               <input
                 type="password"
+                required
+                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                className="w-full h-[69px] rounded-[10px] border border-[#f3a3a5]/70 bg-transparent px-5 font-['Roboto',sans-serif] text-[22px] text-white outline-none focus:border-[#d17ea5] focus:shadow-[0_0_0_2px_rgba(209,126,165,0.3)] transition-all duration-200 placeholder:text-white/30"
-                placeholder="Enter your password"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                className="w-full h-12 rounded-[10px] border border-[#f3a3a5]/50 bg-black/30 px-4 text-base text-white outline-none focus:border-[#d17ea5] transition-all placeholder:text-white/30"
+                placeholder="••••••••"
               />
             </div>
 
-            {/* Remember me */}
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setRemember((v) => !v)}
-                className={`w-[40px] h-[40px] rounded-[5px] border border-[#f3a3a5]/70 flex items-center justify-center transition-all duration-200 flex-shrink-0 ${
-                  remember ? "bg-[#d17ea5]/40 border-[#d17ea5]" : "bg-transparent"
-                }`}
-              >
-                {remember && (
-                  <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-                    <path
-                      d="M1 7L6.5 12.5L17 1"
-                      stroke="white"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
-              </button>
-              <span className="font-['Roboto',sans-serif] font-normal text-[23px] text-white">
-                Remember me
-              </span>
-            </div>
+            {/* Cloudflare Turnstile Widget */}
+            <TurnstileWidget
+              onVerify={setTurnstileToken}
+              resetSignal={resetCounter}
+            />
 
-            {/* Login button */}
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full h-[69px] bg-[#d17ea5] rounded-[10px] font-['Roboto',sans-serif] font-bold text-[27px] text-white shadow-[0_4px_24px_rgba(209,126,165,0.4)] hover:bg-[#c26d94] transition-colors duration-200 mt-2 cursor-pointer"
+              disabled={isLoading}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className="w-full h-12 bg-[#d17ea5] rounded-[10px] font-bold text-base text-white shadow-[0_4px_20px_rgba(209,126,165,0.4)] hover:bg-[#c26d94] transition-colors mt-1 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Login
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSignUp ? "Create Account" : "Sign In"}
             </motion.button>
           </form>
 
-          {/* Secure note */}
-          <div className="flex items-center gap-3 mt-8">
-            <ShieldCheck className="w-[28px] h-[28px] text-[#D45D94] flex-shrink-0" />
-            <span className="font-['Roboto',sans-serif] font-normal text-[22px] text-white">
-              Secure admin access only
+          {/* Toggle Login / Sign Up */}
+          <div className="mt-6 text-center text-sm text-white/75">
+            {isSignUp ? "Already have an account?" : "New to Fazzyu Creations?"}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp((prev) => !prev);
+                setResetCounter((c) => c + 1);
+              }}
+              className="text-[#E8A0BE] font-semibold hover:underline cursor-pointer"
+            >
+              {isSignUp ? "Sign In" : "Create an Account"}
+            </button>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-6 pt-5 border-t border-white/10">
+            <ShieldCheck className="w-4 h-4 text-[#D45D94]" />
+            <span className="text-xs text-white/60">
+              Protected by Cloudflare Turnstile
             </span>
           </div>
         </div>
