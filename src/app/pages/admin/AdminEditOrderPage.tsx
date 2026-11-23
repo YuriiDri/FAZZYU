@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Upload, X, Calendar, Heart, Loader2 } from "lucide-react";
+import { Upload, X, Calendar, Heart, Loader2, Save, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useAppData, supabase, type Order } from "@/app/context/AppDataContext";
 import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
 
-const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
+const STATUS_OPTIONS = ["Available", "Preorder"] as const;
 const CATEGORY_OPTIONS = ["Bouquets", "Themed", "Dolls", "Crafts"];
 const PAYMENT_OPTIONS = ["GCASH", "CASH"];
 
@@ -13,6 +13,30 @@ const inputCls =
   "w-full h-[48px] px-4 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 placeholder:text-white/30";
 const labelCls =
   "block font-['Roboto',sans-serif] font-medium text-[22px] text-white/75 mb-2";
+
+function generateProductId(): string {
+  return `#YC-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function generateCustOrderId(): string {
+  return `#YC-CUST-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function normalizeCatalogStatus(rawStatus?: Order["status"]): "Available" | "Preorder" {
+  return rawStatus === "Preorder" ? "Preorder" : "Available";
+}
+
+function isRealCustomerName(name?: string): boolean {
+  if (!name) return false;
+  const clean = name.trim().toLowerCase();
+  return (
+    clean !== "" &&
+    clean !== "customer" &&
+    clean !== "general customer" &&
+    clean !== "guest customer" &&
+    clean !== "example customers"
+  );
+}
 
 export default function AdminEditOrderPage() {
   const { id: rawId } = useParams<{ id: string }>();
@@ -23,29 +47,68 @@ export default function AdminEditOrderPage() {
   const id = rawId ? decodeURIComponent(rawId) : "";
   const order = id ? orders.find((o) => o.id === id) : undefined;
 
+  const isExistingCustOrder = Boolean(order?.id?.toUpperCase().startsWith("#YC-CUST-"));
+
+  // Permanent Product ID (e.g. #YC-8398) that is NOT changed when saving a customer order
+  const [productId, setProductId] = useState(
+    order?.id && !isExistingCustOrder ? order.id : generateProductId()
+  );
+
   const [title, setTitle] = useState(order?.title ?? "");
   const [price, setPrice] = useState(String(order?.price ?? ""));
   const [category, setCategory] = useState(order?.category ?? "Bouquets");
-  const [status, setStatus] = useState<Order["status"]>(order?.status ?? "Available");
-  const [definition, setDefinition] = useState(order?.definition ?? "");
-  const [description, setDescription] = useState(order?.description ?? ""); 
-  const [customer, setCustomer] = useState(order?.customer ?? "");
-  
-  const [orderId, setOrderId] = useState(
-    order?.id && order.id.startsWith("#YC-") ? order.id : `#YC-${Math.floor(1000 + Math.random() * 9000)}`
+  const [status, setStatus] = useState<"Available" | "Preorder">(
+    normalizeCatalogStatus(order?.status)
   );
+  const [definition, setDefinition] = useState(order?.definition ?? "");
+  const [description, setDescription] = useState(order?.description ?? "");
 
+  // Order Details: starts empty when opening a product so each new customer order gets a fresh form
+  const [orderId, setOrderId] = useState(
+    isExistingCustOrder && order ? order.id : ""
+  );
+  const [customer, setCustomer] = useState(
+    isExistingCustOrder && isRealCustomerName(order?.customer) ? order!.customer.trim() : ""
+  );
   const [payment, setPayment] = useState<"GCASH" | "CASH">(order?.payment ?? "GCASH");
-  const [paymentDate, setPaymentDate] = useState(order?.paymentDate ?? new Date().toLocaleDateString());
-  const [notes, setNotes] = useState(order?.notes ?? "");
+  const [paymentDate, setPaymentDate] = useState(
+    isExistingCustOrder ? (order?.paymentDate ?? "") : ""
+  );
+  const [notes, setNotes] = useState(isExistingCustOrder ? (order?.notes ?? "") : "");
   const [images, setImages] = useState<string[]>(order?.images ?? []);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  const isBusy = isSavingProduct || isSavingOrder;
+
+  function resetOrderDetailsFields() {
+    setOrderId("");
+    setCustomer("");
+    setPayment("GCASH");
+    setPaymentDate("");
+    setNotes("");
+  }
+
+  // Clear Order Details whenever leaving this page or switching to another product ID
+  useEffect(() => {
+    return () => {
+      resetOrderDetailsFields();
+    };
+  }, [id]);
 
   function handleCustomerChange(value: string) {
     setCustomer(value);
-    if (value.trim() && !orderId) {
-      setOrderId(`#YC-${Math.floor(1000 + Math.random() * 9000)}`);
+
+    if (value.trim()) {
+      if (!orderId.trim().toUpperCase().startsWith("#YC-CUST-")) {
+        setOrderId(generateCustOrderId());
+      }
+      if (!paymentDate.trim()) {
+        setPaymentDate(new Date().toISOString().split("T")[0]);
+      }
+    } else if (!isExistingCustOrder) {
+      setOrderId("");
     }
   }
 
@@ -55,14 +118,14 @@ export default function AdminEditOrderPage() {
     try {
       const newUrls: string[] = [];
       for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name.split(".").pop();
         const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `products/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
         if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+        const { data } = supabase.storage.from("images").getPublicUrl(filePath);
         newUrls.push(data.publicUrl);
       }
       setImages((prev) => [...prev, ...newUrls]);
@@ -86,122 +149,173 @@ export default function AdminEditOrderPage() {
     toast.success("Set as main product image.");
   }
 
-  async function handleSave() {
+  async function handleSaveProduct() {
     if (!title.trim()) {
-      toast.error("Please fill in Order Title.");
+      toast.error("Please fill in Title.");
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const targetId = orderId || order?.id || `#YC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const preservedProductId = productId.trim() || order?.id || generateProductId();
 
-      const fullPayload: Order = {
-        id: targetId,
+    setIsSavingProduct(true);
+    try {
+      const payload: Order = {
+        id: isExistingCustOrder && order ? order.id : preservedProductId,
         title: title.trim(),
-        price: Number(price),
+        price: Number(price || 0),
         category,
-        status,
+        status: isExistingCustOrder && order ? order.status : status,
         description: description.trim(),
         definition,
-        customer: customer || "General Customer",
+        customer: isExistingCustOrder ? customer.trim() : "",
         payment,
-        paymentDate,
-        notes,
-        images,
-      };
-
-      // Clean payload strictly matching Supabase table columns to prevent rejection
-      const dbPayload = {
-        id: targetId,
-        title: title.trim(),
-        price: Number(price),
-        category,
-        status,
-        description: description.trim(),
+        paymentDate: isExistingCustOrder
+          ? paymentDate.trim() || new Date().toISOString().split("T")[0]
+          : order?.paymentDate || new Date().toISOString().split("T")[0],
+        notes: isExistingCustOrder ? notes.trim() : order?.notes || "",
         images,
       };
 
       if (order) {
-        const { error: dbError } = await supabase.from('orders').update(dbPayload).eq('id', order.id);
-        if (dbError) {
-          console.error("Supabase update error:", dbError);
-          toast.error(`Database error: ${dbError.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        updateOrder(order.id, fullPayload);
-        toast.success("Order updated successfully.");
+        await updateOrder(order.id, payload);
+        toast.success("Product saved successfully.");
       } else {
-        const { error: dbError } = await supabase.from('orders').insert([dbPayload]);
-        if (dbError) {
-          console.error("Supabase insert error:", dbError);
-          toast.error(`Database error: ${dbError.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        addOrder(fullPayload); 
-        toast.success("New product added successfully!");
+        await addOrder(payload);
+        toast.success("New product saved successfully!");
       }
-      navigate("/admin/orders");
-    } catch (err) {
-      console.error("Save error:", err);
-      toast.error("Failed to save product to database.");
+
+      resetOrderDetailsFields();
+      navigate(isExistingCustOrder ? "/admin/order-list" : "/admin/orders");
+    } catch (err: any) {
+      console.error("Save product error:", err);
+      toast.error(err?.message ? `Database error: ${err.message}` : "Failed to save product.");
     } finally {
-      setIsSubmitting(false);
+      setIsSavingProduct(false);
     }
   }
 
-  function handleDelete() {
-    if (order) {
-        deleteOrder(order.id);
-        toast.success("Order deleted.");
+  async function handleSaveOrder() {
+    if (!title.trim()) {
+      toast.error("Please fill in Title before saving an order.");
+      return;
     }
-    navigate("/admin/orders");
+
+    const trimmedCustomer = customer.trim();
+    if (!trimmedCustomer) {
+      toast.error("Please enter a Customer name in Order Details.");
+      return;
+    }
+
+    setIsSavingOrder(true);
+    try {
+      const custOrderId = orderId.trim().toUpperCase().startsWith("#YC-CUST-")
+        ? orderId.trim().toUpperCase()
+        : generateCustOrderId();
+
+      const customerOrderPayload: Order = {
+        id: custOrderId,
+        title: title.trim(),
+        price: Number(price || 0),
+        category,
+        status: "Pending",
+        description: description.trim(),
+        definition,
+        customer: trimmedCustomer,
+        payment,
+        paymentDate: paymentDate.trim() || new Date().toISOString().split("T")[0],
+        notes: notes.trim(),
+        images,
+      };
+
+      await addOrder(customerOrderPayload);
+      toast.success(`Order ${custOrderId} saved for ${trimmedCustomer}.`);
+      resetOrderDetailsFields();
+      navigate("/admin/order-list");
+    } catch (err: any) {
+      console.error("Save order error:", err);
+      toast.error(err?.message ? `Database error: ${err.message}` : "Failed to save order.");
+    } finally {
+      setIsSavingOrder(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!order) {
+      resetOrderDetailsFields();
+      navigate("/admin/orders");
+      return;
+    }
+
+    setIsSavingProduct(true);
+    try {
+      await deleteOrder(order.id);
+      toast.success("Deleted successfully.");
+      resetOrderDetailsFields();
+      navigate("/admin/orders");
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err?.message ? `Database error: ${err.message}` : "Failed to delete.");
+    } finally {
+      setIsSavingProduct(false);
+    }
+  }
+
+  function handleCancel() {
+    resetOrderDetailsFields();
+    navigate(-1);
   }
 
   return (
     <div className="text-white">
-      {/* ── Page header ── */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="font-['Crimson_Text',serif] text-[64px] text-white leading-tight">
             {order ? "Edit Order" : "Add New Product"}
           </h1>
           <p className="font-['Roboto',sans-serif] text-[24px] text-white leading-snug">
-            {order ? "Update an existing order." : "Create a new product or order catalog item."}
+            {order ? "Update product details or create a customer order." : "Create a new product catalog item."}
           </p>
         </div>
 
-        {/* Cancel + Save Product Button */}
         <div className="flex items-center gap-3 mt-2">
           <button
-            onClick={() => navigate(-1)}
+            type="button"
+            onClick={handleCancel}
             className="h-[72px] px-8 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[20px] text-[rgba(255,255,255,0.74)] hover:border-white/40 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
-            disabled={isSubmitting}
+            type="button"
+            onClick={handleSaveProduct}
+            disabled={isBusy}
             className="h-[72px] px-8 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[22px] text-white hover:bg-[#b83d7a] transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
-            {isSubmitting && <Loader2 className="w-6 h-6 animate-spin" />}
-            {isSubmitting ? "Saving..." : (order ? "Save Order" : "+ Add New Product")}
+            {isSavingProduct ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Save className="w-5 h-5" />
+            )}
+            {isSavingProduct ? "Saving..." : "Save Product"}
           </button>
         </div>
       </div>
 
-      {/* ── Two-column panels ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-        {/* Left: Order Information */}
         <div className="bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6">
           <h2 className="font-['Roboto',sans-serif] font-bold text-[23px] text-white/75 mb-6">
-            Order Information
+            Product Information
           </h2>
           <div className="flex flex-col gap-5">
+            <div>
+              <label className={labelCls}>Product ID</label>
+              <input
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                placeholder="#YC-8398"
+                className={inputCls}
+              />
+            </div>
             <div>
               <label className={labelCls}>Title</label>
               <input
@@ -223,18 +337,14 @@ export default function AdminEditOrderPage() {
             </div>
             <div>
               <label className={labelCls}>Category</label>
-              <AdminDropdown
-                options={CATEGORY_OPTIONS}
-                value={category}
-                onChange={setCategory}
-              />
+              <AdminDropdown options={CATEGORY_OPTIONS} value={category} onChange={setCategory} />
             </div>
             <div>
               <label className={labelCls}>Status</label>
               <AdminDropdown
-                options={STATUS_OPTIONS}
+                options={[...STATUS_OPTIONS]}
                 value={status}
-                onChange={(v) => setStatus(v as Order["status"])}
+                onChange={(v) => setStatus(v as "Available" | "Preorder")}
               />
             </div>
             <div>
@@ -259,74 +369,92 @@ export default function AdminEditOrderPage() {
           </div>
         </div>
 
-        {/* Right: Order Details */}
-        <div className="bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-['Roboto',sans-serif] font-bold text-[23px] text-white/75">
-              Order Details
-            </h2>
-            {order && (
-              <button
-                onClick={handleDelete}
-                className="h-[48px] px-5 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[20px] text-[rgba(233,44,44,0.74)] hover:border-red-500/40 transition-colors whitespace-nowrap cursor-pointer"
-              >
-                Delete Order
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-5">
-            <div>
-              <label className={labelCls}>Order ID</label>
-              <input
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Customer</label>
-              <input
-                value={customer}
-                onChange={(e) => handleCustomerChange(e.target.value)}
-                placeholder="Enter customer name..."
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Payment Method</label>
-              <AdminDropdown
-                options={PAYMENT_OPTIONS}
-                value={payment}
-                onChange={(v) => setPayment(v as "GCASH" | "CASH")}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Payment Date</label>
-              <div className="relative">
-                <input
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  placeholder="e.g. 22 May 2024"
-                  className={`${inputCls} pr-10`}
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50 pointer-events-none" />
+        <div className="bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h2 className="font-['Roboto',sans-serif] font-bold text-[23px] text-white/75">
+                Order Details
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveOrder}
+                  disabled={isBusy}
+                  className="h-[48px] px-5 bg-[#ca498c] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-semibold text-[18px] text-white hover:bg-[#b83d7a] transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSavingOrder ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ShoppingBag className="w-5 h-5" />
+                  )}
+                  {isSavingOrder ? "Saving..." : "Save Order"}
+                </button>
+                {order && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isBusy}
+                    className="h-[48px] px-5 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] font-['Roboto',sans-serif] font-medium text-[18px] text-[rgba(233,44,44,0.74)] hover:border-red-500/40 transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50"
+                  >
+                    Delete Order
+                  </button>
+                )}
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Notes (Optional)</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 resize-none"
-              />
+
+            <div className="flex flex-col gap-5">
+              <div>
+                <label className={labelCls}>Order ID</label>
+                <input
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  placeholder="Empty until customer is entered (#YC-CUST-XXXX)..."
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Customer</label>
+                <input
+                  value={customer}
+                  onChange={(e) => handleCustomerChange(e.target.value)}
+                  placeholder="Enter customer name..."
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Payment Method</label>
+                <AdminDropdown
+                  options={PAYMENT_OPTIONS}
+                  value={payment}
+                  onChange={(v) => setPayment(v as "GCASH" | "CASH")}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Payment Date</label>
+                <div className="relative">
+                  <input
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    placeholder="e.g. 2026-11-23"
+                    className={`${inputCls} pr-10`}
+                  />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Notes (Optional)</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[10px] font-['Roboto',sans-serif] text-[15px] text-white outline-none focus:border-[#ca498c]/60 resize-none"
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Attach Product Image ── */}
       <div className="bg-[#140e11] border border-[rgba(255,255,255,0.25)] rounded-[15px] p-6">
         <h2 className="font-['Roboto',sans-serif] font-bold text-[23px] text-white/75 mb-1">
           Attach Product Image
@@ -336,6 +464,7 @@ export default function AdminEditOrderPage() {
         </p>
         <div className="flex flex-wrap gap-4">
           <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             disabled={isUploading}
             className="w-[195px] h-[177px] bg-[#140e11] border border-dashed border-[rgba(255,255,255,0.25)] rounded-[12px] flex flex-col items-center justify-center gap-3 hover:border-[#ca498c]/60 transition-colors cursor-pointer disabled:opacity-50"
@@ -364,7 +493,6 @@ export default function AdminEditOrderPage() {
               >
                 <img src={src} alt="" className="w-full h-full object-cover" />
 
-                {/* Overlay Controls: Heart & Delete */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                   <button
                     type="button"
@@ -386,7 +514,6 @@ export default function AdminEditOrderPage() {
                   </button>
                 </div>
 
-                {/* MAIN Badge */}
                 {isPrimary && (
                   <span className="absolute bottom-2 left-2 bg-[#ca498c] text-white text-[10px] font-bold px-2 py-0.5 rounded-full pointer-events-none">
                     MAIN

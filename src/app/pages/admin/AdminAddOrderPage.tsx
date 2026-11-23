@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useAppData, supabase, type Order } from "@/app/context/AppDataContext";
 import { AdminDropdown } from "@/app/components/admin/AdminDropdown";
 
-const STATUS_OPTIONS = ["Available", "Out of Stock", "Paid", "Pending"];
+const STATUS_OPTIONS = ["Available", "Preorder"];
 const CATEGORY_OPTIONS = ["Bouquets", "Themed", "Dolls", "Crafts"];
 
 export default function AdminAddOrderPage() {
@@ -28,14 +28,14 @@ export default function AdminAddOrderPage() {
     try {
       const newUrls: string[] = [];
       for (const file of Array.from(files)) {
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name.split(".").pop();
         const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `products/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
         if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+        const { data } = supabase.storage.from("images").getPublicUrl(filePath);
         newUrls.push(data.publicUrl);
       }
       setImages((prev) => [...prev, ...newUrls]);
@@ -65,40 +65,20 @@ export default function AdminAddOrderPage() {
         status: status as Order["status"],
         description: description.trim(),
         definition: "",
-        customer: "General Customer", 
+        customer: "",
         payment: "GCASH",
         paymentDate: new Date().toLocaleDateString(),
         notes: "",
         images,
       };
 
-      // Directly insert into Supabase table matching schema
-      const dbPayload = {
-        id: newProduct.id,
-        title: newProduct.title,
-        price: newProduct.price,
-        category: newProduct.category,
-        status: newProduct.status,
-        description: newProduct.description,
-        images: newProduct.images,
-      };
-
-      const { error: dbError } = await supabase.from('orders').insert([dbPayload]);
-      
-      if (dbError) {
-        console.error("Supabase insert error:", dbError);
-        toast.error(`Database error: ${dbError.message}`);
-        setIsSubmitting(false);
-        return;
-      }
-
       await addOrder(newProduct);
 
       toast.success("Product created and published successfully!");
       navigate("/admin/orders");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Unexpected save error:", err);
-      toast.error("Failed to save product.");
+      toast.error(err?.message ? `Database error: ${err.message}` : "Failed to save product.");
     } finally {
       setIsSubmitting(false);
     }

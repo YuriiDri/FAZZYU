@@ -26,7 +26,7 @@ export type Order = {
   title: string;
   price: number;
   category: string;
-  status: "Available" | "Out of Stock" | "Paid" | "Pending";
+  status: "Available" | "Preorder" | "Out of Stock" | "Paid" | "Pending";
   description: string;
   definition: string;
   customer: string;
@@ -63,6 +63,35 @@ export type CustomizedMaterial = {
   image?: string;
 };
 
+export type CustomOrderSubmission = {
+  orderId: string;
+  title: string;
+  price: number;
+  category: string;
+  size: string;
+  themeInput?: string;
+  description: string;
+  definition: string;
+  customerName: string;
+  customerContact: string;
+  customerAddress: string;
+  notes: string;
+  selectedMaterials: { materialId: string; quantity: number }[];
+  images: string[];
+  aiConcepts?: { prompt: string; imageUrl: string }[];
+  submissionMethod?: "Form" | "AI Chat";
+};
+
+export type PhotoboothQrRecord = {
+  shareCode: string;
+  presetId: string;
+  bannerTitle: string;
+  bannerSubtitle?: string;
+  autoStickers: boolean;
+  customerId?: number | null;
+  orderId?: string | null;
+};
+
 type ImageOrders = Record<number, number[]>;
 
 interface AppDataContextValue {
@@ -72,13 +101,14 @@ interface AppDataContextValue {
 
   orders: Order[];
   addOrder: (o: Order) => Promise<void>;
+  submitNormalizedCustomOrder: (payload: CustomOrderSubmission) => Promise<void>;
   updateOrder: (id: string, patch: Partial<Order>) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
 
   inventory: InventoryItem[];
-  addInventoryItem: (item: InventoryItem) => void;
-  updateInventoryItem: (id: string, patch: Partial<InventoryItem>) => void;
-  deleteInventoryItem: (id: string) => void;
+  addInventoryItem: (item: InventoryItem) => Promise<void>;
+  updateInventoryItem: (id: string, patch: Partial<InventoryItem>) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
 
   galleryImages: GalleryImage[];
   addGalleryImage: (img: GalleryImage) => Promise<void>;
@@ -88,6 +118,14 @@ interface AppDataContextValue {
   addCustomizedMaterial: (item: CustomizedMaterial) => Promise<void>;
   updateCustomizedMaterial: (id: string, patch: Partial<CustomizedMaterial>) => Promise<void>;
   deleteCustomizedMaterial: (id: string) => Promise<void>;
+
+  // Photobooth QR & Session DB Functions
+  savePhotoboothQrCode: (params: PhotoboothQrRecord) => Promise<void>;
+  logPhotoboothActivity: (shareCode?: string) => Promise<void>;
+
+  // AI Chat Session & Message DB Functions
+  createChatSession: () => Promise<number | null>;
+  logChatMessage: (sessionId: number | null, sender: "Customer" | "AI", messageText: string) => Promise<void>;
 }
 
 const SEED_PRODUCTS: Product[] = [
@@ -165,88 +203,18 @@ const SEED_PRODUCTS: Product[] = [
   },
 ];
 
-const SEED_ORDERS: Order[] = [
-  {
-    id: "#YC-1025",
-    title: "Sunflower Bouquet",
-    price: 650,
-    category: "Bouquets",
-    status: "Paid",
-    description: "Yellow sunflower arrangement for birthday.",
-    definition: "Large themed bouquet with yellow accents.",
-    customer: "Maria Santos",
-    payment: "GCASH",
-    paymentDate: "22 May 2024",
-    notes: "",
-    images: [],
-  },
-  {
-    id: "#YC-1024",
-    title: "Pink Dream Bouquet",
-    price: 450,
-    category: "Bouquets",
-    status: "Pending",
-    description: "Soft pink arrangement.",
-    definition: "Small bouquet in pastel tones.",
-    customer: "Ana Reyes",
-    payment: "CASH",
-    paymentDate: "20 May 2024",
-    notes: "",
-    images: [],
-  },
-];
-
-const SEED_INVENTORY: InventoryItem[] = [
-  {
-    id: "inv-1",
-    name: "Fuzzy Wire (Pink)",
-    category: "Fuzzy Wire",
-    stock: 90,
-    unit: "pcs",
-    lastRestock: "20 May 2024",
-    unitPrice: 15,
-    totalValue: 1350,
-    supplier: "Craft Supplies PH",
-    supplierLink: "",
-  },
-  {
-    id: "inv-2",
-    name: "Fuzzy Wire (White)",
-    category: "Fuzzy Wire",
-    stock: 60,
-    unit: "pcs",
-    lastRestock: "18 May 2024",
-    unitPrice: 15,
-    totalValue: 900,
-    supplier: "Craft Supplies PH",
-    supplierLink: "",
-  },
-  {
-    id: "inv-3",
-    name: "Wrapping Paper",
-    category: "Packaging",
-    stock: 30,
-    unit: "sheets",
-    lastRestock: "15 May 2024",
-    unitPrice: 20,
-    totalValue: 600,
-    supplier: "Paper World",
-    supplierLink: "",
-  },
-];
-
 const SEED_GALLERY: GalleryImage[] = [
-  { id: "gal-1", src: imgGallerySample, productId: 1 },
-  { id: "gal-2", src: imgItemMain, productId: 1 },
-  { id: "gal-3", src: imgExampleImage, productId: 2 },
-  { id: "gal-4", src: imgExampleImage, productId: 3 },
+  { id: "1", src: imgGallerySample, productId: 1 },
+  { id: "2", src: imgItemMain, productId: 1 },
+  { id: "3", src: imgExampleImage, productId: 2 },
+  { id: "4", src: imgExampleImage, productId: 3 },
 ];
 
 const SEED_MATERIALS: CustomizedMaterial[] = [
-  { id: "mat-1", name: "Sunflower", category: "flower", price: 50 },
-  { id: "mat-2", name: "Rose", category: "flower", price: 40 },
-  { id: "mat-3", name: "Classic Cellophane", category: "wrapper", price: 30 },
-  { id: "mat-4", name: "Korean Paper", category: "wrapper", price: 45 },
+  { id: "1", name: "Sunflower", category: "flower", price: 50 },
+  { id: "2", name: "Rose", category: "flower", price: 40 },
+  { id: "3", name: "Classic Cellophane", category: "wrapper", price: 30 },
+  { id: "4", name: "Korean Paper", category: "wrapper", price: 45 },
 ];
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -269,97 +237,279 @@ function saveToStorage(data: object) {
   }
 }
 
+// Helper: Map UI status <-> Phase 3 DB status
+function mapDbStatusToUi(dbStatus: string): Order["status"] {
+  switch (dbStatus) {
+    case "Delivered":
+      return "Paid";
+    case "Cancelled":
+      return "Out of Stock";
+    case "Preorder":
+      return "Preorder";
+    case "Processing":
+    case "Out for Delivery":
+      return "Available";
+    default:
+      return "Pending";
+  }
+}
+
+function mapUiStatusToDb(uiStatus?: string): string {
+  switch (uiStatus) {
+    case "Paid":
+      return "Delivered";
+    case "Out of Stock":
+      return "Cancelled";
+    case "Preorder":
+      return "Preorder";
+    case "Available":
+      return "Processing";
+    case "Processing":
+    case "Out for Delivery":
+    case "Delivered":
+    case "Cancelled":
+      return uiStatus;
+    default:
+      return "Pending";
+  }
+}
+
+function normalizeOrderId(rawId: string): string {
+  const cleaned = rawId.trim();
+  if (cleaned.startsWith("#YC-CUST-")) return cleaned.slice(0, 30);
+  if (/^#YC-\d+$/i.test(cleaned)) return cleaned.toUpperCase().slice(0, 30);
+  const suffix = cleaned.replace(/^#?(YC-CUST-|YC-)?/i, "");
+  return `#YC-CUST-${suffix}`.slice(0, 30);
+}
+
+function detectDeliveryZoneId(address: string): number | null {
+  const lower = address.toLowerCase();
+  if (lower.includes("pulanglupa")) return 1;
+  if (lower.includes("naga")) return 2;
+  if (lower.includes("bf")) return 3;
+  if (lower.includes("sucat")) return 4;
+  if (lower.includes("makati")) return 5;
+  return null;
+}
+
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const stored = loadFromStorage();
 
-  const [products] = useState<Product[]>(SEED_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>(SEED_PRODUCTS);
   const [imageOrders, setImageOrders] = useState<ImageOrders>(stored?.imageOrders ?? {});
   const [orders, setOrders] = useState<Order[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>(stored?.inventory ?? SEED_INVENTORY);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [customizedMaterials, setCustomizedMaterials] = useState<CustomizedMaterial[]>([]);
 
-  // 1. Fetch Orders, Gallery, and Customized Materials on Mount
-  useEffect(() => {
-    async function fetchData() {
-      // Fetch Orders
-      const { data: orderData, error: orderError } = await supabase.from("orders").select("*");
-      if (orderError) {
-        setOrders(stored?.orders ?? SEED_ORDERS);
-      } else {
-        const formattedOrders: Order[] = orderData.map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          category: item.category,
-          status: item.status,
-          description: item.description,
-          definition: item.definition,
-          customer: item.customer,
-          payment: item.payment,
-          paymentDate: item.payment_date,
-          notes: item.notes,
-          images: item.images || [],
-        }));
-        setOrders(formattedOrders);
-      }
+  async function fetchAllNormalizedData() {
+    const [
+      { data: prodData, error: prodErr },
+      { data: orderData, error: orderErr },
+      { data: matData, error: matErr },
+      { data: galData, error: galErr },
+    ] = await Promise.all([
+      supabase
+        .from("product")
+        .select(
+          "product_id, product_name, description, price, stock_quantity, image_url, is_visible, category(category_name)"
+        )
+        .order("product_id", { ascending: true }),
+      supabase
+        .from("orders")
+        .select(`
+          order_id,
+          payment_method,
+          order_date,
+          status,
+          street,
+          size,
+          color,
+          addon,
+          notes,
+          customer(first_name, last_name, email, phone),
+          customization_inquiry(
+            inquiry_id,
+            arrangement,
+            additional_instructions,
+            estimated_price,
+            final_price,
+            reference_image(image_url),
+            ai_design(generated_image_url)
+          ),
+          order_item(quantity, unit_price, product(product_name, category(category_name)))
+        `)
+        .order("order_date", { ascending: false }),
+      supabase
+        .from("material")
+        .select(
+          "material_id, item_name, color, description, image_url, stock, unit, unit_price, last_restock, is_available, material_type(type_name)"
+        )
+        .order("material_id", { ascending: true }),
+      supabase
+        .from("gallery_image")
+        .select("gallery_image_id, image_url, caption, display_order")
+        .order("display_order", { ascending: true }),
+    ]);
 
-      // Fetch Gallery Images
-      const { data: galleryData, error: galleryError } = await supabase.from("gallery").select("*");
-      if (galleryError) {
-        setGalleryImages(SEED_GALLERY);
-      } else {
-        const formattedGallery: GalleryImage[] = galleryData.map((item: any) => ({
-          id: item.id,
-          src: item.src,
-          productId: item.product_id,
-        }));
-        setGalleryImages(formattedGallery);
-      }
-
-      // Fetch Customized Materials
-      const { data: matData, error: matError } = await supabase.from("customized_materials").select("*");
-      if (matError || !matData || matData.length === 0) {
-        setCustomizedMaterials(SEED_MATERIALS);
-      } else {
-        setCustomizedMaterials(matData.map((m: any) => ({
-          id: m.id,
-          name: m.name,
-          category: m.category,
-          price: m.price,
-          image: m.image,
-        })));
-      }
+    // 1. Products
+    if (!prodErr && prodData && prodData.length > 0) {
+      setProducts(
+        prodData.map((p: any) => {
+          const catName = p.category?.category_name || "Bouquets";
+          const inStock = (p.stock_quantity ?? 0) > 0 && p.is_visible !== false;
+          return {
+            id: p.product_id,
+            name: p.product_name,
+            price: Number(p.price ?? 0),
+            category: catName,
+            status: inStock ? "Available" : "Sold Out",
+            image: p.image_url || imgExampleImage,
+            description: p.description || "Handmade fuzzy-wire craft by Yuri's Craft.",
+            bouquetType: `${catName} Arrangement`,
+            size: "Standard",
+          };
+        })
+      );
+    } else {
+      setProducts(SEED_PRODUCTS);
     }
-    
-    fetchData();
 
-    // 2. Real-time Subscriptions
-    const orderChannel = supabase
-      .channel("public:orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchData())
-      .subscribe();
+    // 2. Orders
+    if (!orderErr && orderData) {
+      const formattedOrders: Order[] = orderData.map((row: any) => {
+        const cust = row.customer;
+        const inq = row.customization_inquiry;
+        const items = row.order_item || [];
 
-    const galleryChannel = supabase
-      .channel("public:gallery")
-      .on("postgres_changes", { event: "*", schema: "public", table: "gallery" }, () => fetchData())
-      .subscribe();
+        const itemTotal = items.reduce(
+          (sum: number, it: any) => sum + Number(it.quantity || 0) * Number(it.unit_price || 0),
+          0
+        );
+        const computedPrice =
+          itemTotal > 0
+            ? itemTotal
+            : Number(inq?.final_price ?? inq?.estimated_price ?? 0);
 
-    const materialChannel = supabase
-      .channel("public:customized_materials")
-      .on("postgres_changes", { event: "*", schema: "public", table: "customized_materials" }, () => fetchData())
+        const refImgs = (inq?.reference_image || []).map((r: any) => r.image_url).filter(Boolean);
+        const aiImgs = (inq?.ai_design || []).map((a: any) => a.generated_image_url).filter(Boolean);
+        const allImages = Array.from(new Set([...refImgs, ...aiImgs]));
+
+        const firstProductCat = items[0]?.product?.category?.category_name;
+        const inferredCat =
+          firstProductCat ||
+          (inq?.arrangement?.includes("Dolls")
+            ? "Dolls"
+            : inq?.arrangement?.includes("Themed")
+            ? "Themed"
+            : inq?.arrangement?.includes("Crafts")
+            ? "Crafts"
+            : "Bouquets");
+
+        const customerFullName = cust
+          ? `${cust.first_name || ""} ${cust.last_name || ""}`.trim()
+          : "";
+
+        const defParts = [
+          row.size ? `Size: ${row.size}` : null,
+          row.color ? `Color: ${row.color}` : null,
+          row.addon ? `Add-on: ${row.addon}` : null,
+          row.street ? `Address: ${row.street}` : null,
+        ].filter(Boolean);
+
+        return {
+          id: row.order_id,
+          title: inq?.arrangement || items[0]?.product?.product_name || "Custom Creation",
+          price: computedPrice,
+          category: inferredCat,
+          status: mapDbStatusToUi(row.status),
+          description: inq?.additional_instructions || "Custom client request.",
+          definition: defParts.join(" | ") || "Standard specification",
+          customer: customerFullName,
+          payment: row.payment_method === "COD" ? "CASH" : "GCASH",
+          paymentDate: row.order_date || new Date().toISOString().split("T")[0],
+          notes: row.notes || "",
+          images: allImages,
+        };
+      });
+      setOrders(formattedOrders);
+    }
+
+    // 3. Materials -> feeds BOTH `inventory` & `customizedMaterials`
+    if (!matErr && matData && matData.length > 0) {
+      const formattedInv: InventoryItem[] = matData.map((m: any) => {
+        const stockNum = Number(m.stock ?? 0);
+        const unitPriceNum = Number(m.unit_price ?? 0);
+        return {
+          id: String(m.material_id),
+          name: m.item_name,
+          category: m.material_type?.type_name || "Fuzzy Wire",
+          stock: stockNum,
+          unit: m.unit || "pcs",
+          lastRestock: m.last_restock || new Date().toISOString().split("T")[0],
+          unitPrice: unitPriceNum,
+          totalValue: stockNum * unitPriceNum,
+          supplier: m.description || "Craft Supplies PH",
+          supplierLink: m.image_url || "",
+        };
+      });
+      setInventory(formattedInv);
+
+      const customMats: CustomizedMaterial[] = matData
+        .filter((m: any) => m.is_available !== false)
+        .map((m: any) => {
+          const tName = (m.material_type?.type_name || "").toLowerCase();
+          const matCategory: "flower" | "wrapper" =
+            tName.includes("wrap") || tName.includes("paper") || tName.includes("fabric")
+              ? "wrapper"
+              : "flower";
+          return {
+            id: String(m.material_id),
+            name: m.item_name,
+            category: matCategory,
+            price: Number(m.unit_price ?? 0),
+            image: m.image_url || undefined,
+          };
+        });
+      setCustomizedMaterials(customMats.length > 0 ? customMats : SEED_MATERIALS);
+    } else {
+      setCustomizedMaterials(SEED_MATERIALS);
+    }
+
+    // 4. Gallery
+    if (!galErr && galData && galData.length > 0) {
+      setGalleryImages(
+        galData.map((g: any) => ({
+          id: String(g.gallery_image_id),
+          src: g.image_url,
+          productId: undefined,
+        }))
+      );
+    } else {
+      setGalleryImages(SEED_GALLERY);
+    }
+  }
+
+  useEffect(() => {
+    fetchAllNormalizedData();
+
+    const channel = supabase
+      .channel("fazzyu-3nf-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchAllNormalizedData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "customization_inquiry" }, () => fetchAllNormalizedData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "product" }, () => fetchAllNormalizedData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "material" }, () => fetchAllNormalizedData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "gallery_image" }, () => fetchAllNormalizedData())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(orderChannel);
-      supabase.removeChannel(galleryChannel);
-      supabase.removeChannel(materialChannel);
+      supabase.removeChannel(channel);
     };
   }, []);
 
   useEffect(() => {
-    saveToStorage({ imageOrders, inventory });
-  }, [imageOrders, inventory]);
+    saveToStorage({ imageOrders });
+  }, [imageOrders]);
 
   function getPrimaryImageIndex(productId: number): number {
     const order = imageOrders[productId];
@@ -374,126 +524,442 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  async function addOrder(o: Order) {
-    const { error } = await supabase.from("orders").insert([
-      {
-        id: o.id,
-        title: o.title,
-        price: o.price,
-        category: o.category,
-        status: o.status,
-        description: o.description,
-        definition: o.definition,
-        customer: o.customer,
-        payment: o.payment,
-        payment_date: o.paymentDate,
-        notes: o.notes,
-        images: o.images,
-      },
-    ]);
-    if (!error) {
-      setOrders((prev) => [o, ...prev]);
+  async function findOrCreateCustomer(fullName: string, contact?: string): Promise<number> {
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = (parts[0] || "Guest").slice(0, 50);
+    const lastName = (parts.slice(1).join(" ") || "Customer").slice(0, 50);
+    const isEmail = contact?.includes("@");
+    const cleanEmail = isEmail ? contact!.trim().slice(0, 150) : null;
+    const cleanPhone =
+      !isEmail && contact
+        ? contact.replace(/[^0-9+-]/g, "").slice(0, 20) || null
+        : null;
+
+    if (cleanEmail) {
+      const { data: byEmail } = await supabase
+        .from("customer")
+        .select("customer_id")
+        .eq("email", cleanEmail)
+        .maybeSingle();
+      if (byEmail) return byEmail.customer_id;
     }
+
+    const { data: existing } = await supabase
+      .from("customer")
+      .select("customer_id")
+      .ilike("first_name", firstName)
+      .ilike("last_name", lastName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) return existing.customer_id;
+
+    const { data: inserted, error } = await supabase
+      .from("customer")
+      .insert({
+        first_name: firstName,
+        last_name: lastName,
+        email: cleanEmail,
+        phone: cleanPhone && cleanPhone.length >= 7 ? cleanPhone : null,
+      })
+      .select("customer_id")
+      .single();
+
+    if (error) throw error;
+    return inserted.customer_id;
+  }
+
+  // Full 3NF Custom Order Submission (`customer` -> `customization_inquiry` -> `inquiry_material` -> `reference_image` -> `ai_design` -> `orders`)
+  async function submitNormalizedCustomOrder(payload: CustomOrderSubmission) {
+    const validOrderId = normalizeOrderId(payload.orderId);
+    const customerId = await findOrCreateCustomer(payload.customerName, payload.customerContact);
+
+    // 1. Insert Customization Inquiry
+    const { data: inquiryRow, error: inqErr } = await supabase
+      .from("customization_inquiry")
+      .insert({
+        customer_id: customerId,
+        submission_method: payload.submissionMethod || "Form",
+        arrangement: payload.title.slice(0, 100),
+        additional_instructions: payload.description || null,
+        estimated_price: payload.price,
+        final_price: payload.price,
+        status: "Pending",
+      })
+      .select("inquiry_id")
+      .single();
+
+    if (inqErr) throw inqErr;
+    const inquiryId = inquiryRow.inquiry_id;
+
+    // 2. Insert Selected Materials (`inquiry_material`)
+    const validMaterials = payload.selectedMaterials
+      .map((m) => ({
+        materialId: Number(m.materialId),
+        quantity: m.quantity,
+      }))
+      .filter((m) => Number.isFinite(m.materialId) && m.materialId > 0 && m.quantity > 0);
+
+    if (validMaterials.length > 0) {
+      await supabase.from("inquiry_material").insert(
+        validMaterials.map((m) => ({
+          inquiry_id: inquiryId,
+          material_id: m.materialId,
+          quantity: m.quantity,
+        }))
+      );
+    }
+
+    // 3. Insert Reference Images (`reference_image`)
+    if (payload.images.length > 0) {
+      await supabase.from("reference_image").insert(
+        payload.images.map((url) => ({
+          inquiry_id: inquiryId,
+          image_url: url,
+        }))
+      );
+    }
+
+    // 4. Insert AI Designs (`ai_design`)
+    if (payload.aiConcepts && payload.aiConcepts.length > 0) {
+      await supabase.from("ai_design").insert(
+        payload.aiConcepts.map((c) => ({
+          inquiry_id: inquiryId,
+          prompt_text: c.prompt || "Custom AI bouquet design",
+          generated_image_url: c.imageUrl,
+          disclaimer_acknowledged: true,
+        }))
+      );
+    }
+
+    // 5. Insert Order (`orders`)
+    const zoneId = detectDeliveryZoneId(payload.customerAddress);
+    const { error: orderErr } = await supabase.from("orders").insert({
+      order_id: validOrderId,
+      customer_id: customerId,
+      inquiry_id: inquiryId,
+      zone_id: zoneId,
+      payment_method: "GCash",
+      status: "Pending",
+      street: payload.customerAddress ? payload.customerAddress.slice(0, 100) : null,
+      size: payload.size || null,
+      addon: payload.themeInput ? payload.themeInput.slice(0, 60) : null,
+      notes: `Contact: ${payload.customerContact}\n${payload.notes}`.trim(),
+    });
+
+    if (orderErr) throw orderErr;
+    await fetchAllNormalizedData();
+  }
+
+  // Admin / Standard Order Insert (`customer` -> `customization_inquiry` -> `reference_image` -> `orders`)
+  async function addOrder(o: Order) {
+    const validOrderId = normalizeOrderId(o.id);
+    const customerId = await findOrCreateCustomer(o.customer);
+
+    const { data: inquiryRow, error: inqErr } = await supabase
+      .from("customization_inquiry")
+      .insert({
+        customer_id: customerId,
+        submission_method: "Form",
+        arrangement: (o.title || "Custom Order").slice(0, 100),
+        additional_instructions: o.description || o.definition || null,
+        estimated_price: Number(o.price || 0),
+        final_price: Number(o.price || 0),
+        status: o.status === "Paid" ? "Completed" : "Pending",
+      })
+      .select("inquiry_id")
+      .single();
+
+    if (inqErr) throw inqErr;
+
+    if (o.images && o.images.length > 0) {
+      await supabase.from("reference_image").insert(
+        o.images.map((url) => ({
+          inquiry_id: inquiryRow.inquiry_id,
+          image_url: url,
+        }))
+      );
+    }
+
+    const { error: orderErr } = await supabase.from("orders").insert({
+      order_id: validOrderId,
+      customer_id: customerId,
+      inquiry_id: inquiryRow.inquiry_id,
+      payment_method: o.payment === "CASH" ? "COD" : "GCash",
+      status: mapUiStatusToDb(o.status),
+      notes: o.notes || null,
+    });
+
+    if (orderErr) throw orderErr;
+    await fetchAllNormalizedData();
   }
 
   async function updateOrder(id: string, patch: Partial<Order>) {
-    const dbPatch: Record<string, any> = {};
-    if (patch.title !== undefined) dbPatch.title = patch.title;
-    if (patch.price !== undefined) dbPatch.price = patch.price;
-    if (patch.category !== undefined) dbPatch.category = patch.category;
-    if (patch.status !== undefined) dbPatch.status = patch.status;
-    if (patch.description !== undefined) dbPatch.description = patch.description;
-    if (patch.definition !== undefined) dbPatch.definition = patch.definition;
-    if (patch.customer !== undefined) dbPatch.customer = patch.customer;
-    if (patch.payment !== undefined) dbPatch.payment = patch.payment;
-    if (patch.paymentDate !== undefined) dbPatch.payment_date = patch.paymentDate;
-    if (patch.notes !== undefined) dbPatch.notes = patch.notes;
-    if (patch.images !== undefined) dbPatch.images = patch.images;
+    const currentOrder = orders.find((o) => o.id === id);
+    const orderPatch: Record<string, any> = {};
 
-    const { error } = await supabase.from("orders").update(dbPatch).match({ id });
-    if (!error) {
-      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+    if (patch.status !== undefined) orderPatch.status = mapUiStatusToDb(patch.status);
+    if (patch.payment !== undefined) orderPatch.payment_method = patch.payment === "CASH" ? "COD" : "GCash";
+    if (patch.notes !== undefined) orderPatch.notes = patch.notes;
+    if (patch.id !== undefined && patch.id.trim() && patch.id.trim() !== id) {
+      orderPatch.order_id = patch.id.trim().slice(0, 30);
     }
+    if (
+      patch.customer !== undefined &&
+      patch.customer.trim() &&
+      patch.customer.trim() !== (currentOrder?.customer ?? "").trim()
+    ) {
+      orderPatch.customer_id = await findOrCreateCustomer(patch.customer.trim());
+    }
+
+    const { data: updatedOrder, error } = await supabase
+      .from("orders")
+      .update(orderPatch)
+      .eq("order_id", id)
+      .select("order_id, inquiry_id, customer_id")
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const targetInquiryId = updatedOrder?.inquiry_id;
+    if (targetInquiryId) {
+      const inqPatch: Record<string, any> = {};
+      if (patch.title !== undefined) inqPatch.arrangement = patch.title.slice(0, 100);
+      if (patch.price !== undefined) {
+        inqPatch.estimated_price = Number(patch.price);
+        inqPatch.final_price = Number(patch.price);
+      }
+      if (patch.description !== undefined) inqPatch.additional_instructions = patch.description;
+      if (patch.status !== undefined) {
+        inqPatch.status =
+          patch.status === "Paid"
+            ? "Completed"
+            : patch.status === "Out of Stock"
+            ? "Cancelled"
+            : "Processing";
+      }
+      if (Object.keys(inqPatch).length > 0) {
+        const { error: inqError } = await supabase
+          .from("customization_inquiry")
+          .update(inqPatch)
+          .eq("inquiry_id", targetInquiryId);
+        if (inqError) throw inqError;
+      }
+    }
+
+    await fetchAllNormalizedData();
   }
 
   async function deleteOrder(id: string) {
-    const { error } = await supabase.from("orders").delete().match({ id });
-    if (!error) {
-      setOrders((prev) => prev.filter((o) => o.id !== id));
+    const { data: row } = await supabase
+      .from("orders")
+      .select("inquiry_id")
+      .eq("order_id", id)
+      .maybeSingle();
+
+    await supabase.from("orders").delete().eq("order_id", id);
+    if (row?.inquiry_id) {
+      await supabase.from("customization_inquiry").delete().eq("inquiry_id", row.inquiry_id);
     }
+    await fetchAllNormalizedData();
   }
 
-  function addInventoryItem(item: InventoryItem) {
-    setInventory((prev) => [item, ...prev]);
+  // --- INVENTORY (`material` + `material_type`) ---
+  async function resolveMaterialTypeId(typeName: string): Promise<number> {
+    const clean = (typeName || "Fuzzy Wire").trim().slice(0, 50);
+    const { data: existing } = await supabase
+      .from("material_type")
+      .select("material_type_id")
+      .ilike("type_name", clean)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) return existing.material_type_id;
+
+    const { data: created, error } = await supabase
+      .from("material_type")
+      .insert({ type_name: clean })
+      .select("material_type_id")
+      .single();
+
+    if (error) return 1;
+    return created.material_type_id;
   }
 
-  function updateInventoryItem(id: string, patch: Partial<InventoryItem>) {
-    setInventory((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  async function addInventoryItem(item: InventoryItem) {
+    const typeId = await resolveMaterialTypeId(item.category);
+    await supabase.from("material").insert({
+      item_name: item.name.slice(0, 100),
+      material_type_id: typeId,
+      admin_id: 1,
+      stock: Math.max(0, Number(item.stock || 0)),
+      unit: (item.unit || "pcs").slice(0, 20),
+      unit_price: Math.max(0, Number(item.unitPrice || 0)),
+      description: item.supplier || null,
+      image_url: item.supplierLink || null,
+      is_available: true,
+    });
+    await fetchAllNormalizedData();
   }
 
-  function deleteInventoryItem(id: string) {
-    setInventory((prev) => prev.filter((i) => i.id !== id));
+  async function updateInventoryItem(id: string, patch: Partial<InventoryItem>) {
+    const numId = Number(id);
+    if (!Number.isFinite(numId)) return;
+
+    const dbPatch: Record<string, any> = {};
+    if (patch.name !== undefined) dbPatch.item_name = patch.name.slice(0, 100);
+    if (patch.category !== undefined) dbPatch.material_type_id = await resolveMaterialTypeId(patch.category);
+    if (patch.stock !== undefined) dbPatch.stock = Math.max(0, Number(patch.stock));
+    if (patch.unit !== undefined) dbPatch.unit = patch.unit.slice(0, 20);
+    if (patch.unitPrice !== undefined) dbPatch.unit_price = Math.max(0, Number(patch.unitPrice));
+    if (patch.supplier !== undefined) dbPatch.description = patch.supplier;
+    if (patch.supplierLink !== undefined) dbPatch.image_url = patch.supplierLink;
+
+    await supabase.from("material").update(dbPatch).eq("material_id", numId);
+    await fetchAllNormalizedData();
   }
 
+  async function deleteInventoryItem(id: string) {
+    const numId = Number(id);
+    if (!Number.isFinite(numId)) return;
+    await supabase.from("material").delete().eq("material_id", numId);
+    await fetchAllNormalizedData();
+  }
+
+  // --- GALLERY (`gallery_image`) ---
   async function addGalleryImage(img: GalleryImage) {
-    const { error } = await supabase.from("gallery").insert([
-      {
-        id: img.id,
-        src: img.src,
-        product_id: img.productId,
-      },
-    ]);
+    const { error } = await supabase.from("gallery_image").insert({
+      admin_id: 1,
+      image_url: img.src,
+      caption: img.productId ? `Product #${img.productId}` : "Fazzyu Showcase",
+      display_order: galleryImages.length + 1,
+    });
     if (!error) {
-      setGalleryImages((prev) => [...prev, img]);
+      await fetchAllNormalizedData();
     } else {
-      console.error("Failed to add image to DB:", error);
+      console.error("Failed to add gallery image:", error);
     }
   }
 
   async function deleteGalleryImage(id: string) {
-    const { error } = await supabase.from("gallery").delete().match({ id });
-    if (!error) {
-      setGalleryImages((prev) => prev.filter((g) => g.id !== id));
+    const numId = Number(id);
+    if (Number.isFinite(numId)) {
+      await supabase.from("gallery_image").delete().eq("gallery_image_id", numId);
     } else {
-      console.error("Failed to delete image from DB:", error);
+      await supabase.from("gallery_image").delete().eq("image_url", id);
     }
+    await fetchAllNormalizedData();
   }
 
-  // --- CUSTOMIZED MATERIALS CLOUD FUNCTIONS ---
-
+  // --- CUSTOMIZED MATERIALS (`material` with type `flower` / `wrapper`) ---
   async function addCustomizedMaterial(item: CustomizedMaterial) {
-    const { error } = await supabase.from("customized_materials").insert([
-      {
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        price: item.price,
-        image: item.image,
-      },
-    ]);
+    const typeId = await resolveMaterialTypeId(item.category);
+    const { error } = await supabase.from("material").insert({
+      item_name: item.name.slice(0, 100),
+      material_type_id: typeId,
+      admin_id: 1,
+      stock: 50,
+      unit: "pcs",
+      unit_price: Math.max(0, Number(item.price || 0)),
+      image_url: item.image || null,
+      is_available: true,
+    });
     if (!error) {
-      setCustomizedMaterials((prev) => [...prev, item]);
+      await fetchAllNormalizedData();
     } else {
       console.error("Failed to add custom material:", error);
     }
   }
 
   async function updateCustomizedMaterial(id: string, patch: Partial<CustomizedMaterial>) {
-    const { error } = await supabase.from("customized_materials").update(patch).match({ id });
-    if (!error) {
-      setCustomizedMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
-    } else {
-      console.error("Failed to update custom material:", error);
-    }
+    const numId = Number(id);
+    if (!Number.isFinite(numId)) return;
+
+    const dbPatch: Record<string, any> = {};
+    if (patch.name !== undefined) dbPatch.item_name = patch.name.slice(0, 100);
+    if (patch.category !== undefined) dbPatch.material_type_id = await resolveMaterialTypeId(patch.category);
+    if (patch.price !== undefined) dbPatch.unit_price = Math.max(0, Number(patch.price));
+    if (patch.image !== undefined) dbPatch.image_url = patch.image;
+
+    await supabase.from("material").update(dbPatch).eq("material_id", numId);
+    await fetchAllNormalizedData();
   }
 
   async function deleteCustomizedMaterial(id: string) {
-    const { error } = await supabase.from("customized_materials").delete().match({ id });
-    if (!error) {
-      setCustomizedMaterials((prev) => prev.filter((m) => m.id !== id));
-    } else {
-      console.error("Failed to delete custom material:", error);
+    const numId = Number(id);
+    if (!Number.isFinite(numId)) return;
+    await supabase.from("material").delete().eq("material_id", numId);
+    await fetchAllNormalizedData();
+  }
+
+  // --- PHOTOBOOTH QR & SESSION TRACKING (`photobooth_qr_code` & `photobooth_session`) ---
+  async function savePhotoboothQrCode(params: PhotoboothQrRecord) {
+    const { error } = await supabase.from("photobooth_qr_code").upsert(
+      {
+        share_code: params.shareCode,
+        preset_id: params.presetId,
+        banner_title: params.bannerTitle.slice(0, 80),
+        banner_subtitle: params.bannerSubtitle ? params.bannerSubtitle.slice(0, 100) : null,
+        auto_stickers: params.autoStickers,
+        customer_id: params.customerId ?? null,
+        order_id: params.orderId ?? null,
+      },
+      { onConflict: "share_code" }
+    );
+    if (error) console.error("Failed to save Photobooth QR code:", error);
+  }
+
+  async function logPhotoboothActivity(shareCode?: string) {
+    let qrCodeId: number | null = null;
+
+    if (shareCode) {
+      const { data: qrRow } = await supabase
+        .from("photobooth_qr_code")
+        .select("qr_code_id, scan_count")
+        .eq("share_code", shareCode)
+        .maybeSingle();
+
+      if (qrRow) {
+        qrCodeId = qrRow.qr_code_id;
+        await supabase
+          .from("photobooth_qr_code")
+          .update({ scan_count: (qrRow.scan_count || 0) + 1 })
+          .eq("qr_code_id", qrCodeId);
+      }
     }
+
+    await supabase.from("photobooth_session").insert({
+      customer_id: null,
+      qr_code_id: qrCodeId,
+    });
+  }
+
+  // --- AI CHAT SESSION & MESSAGES (`chat_session` & `chat_message`) ---
+  async function createChatSession(): Promise<number | null> {
+    const { data, error } = await supabase
+      .from("chat_session")
+      .insert({ customer_id: null })
+      .select("session_id")
+      .single();
+
+    if (error) {
+      console.error("Failed to create chat session:", error);
+      return null;
+    }
+    return data.session_id;
+  }
+
+  async function logChatMessage(
+    sessionId: number | null,
+    sender: "Customer" | "AI",
+    messageText: string
+  ) {
+    if (!sessionId || !messageText.trim()) return;
+    await supabase.from("chat_message").insert({
+      session_id: sessionId,
+      sender,
+      message_text: messageText,
+    });
   }
 
   return (
@@ -504,6 +970,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setPrimaryImage,
         orders,
         addOrder,
+        submitNormalizedCustomOrder,
         updateOrder,
         deleteOrder,
         inventory,
@@ -517,6 +984,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addCustomizedMaterial,
         updateCustomizedMaterial,
         deleteCustomizedMaterial,
+        savePhotoboothQrCode,
+        logPhotoboothActivity,
+        createChatSession,
+        logChatMessage,
       }}
     >
       {children}

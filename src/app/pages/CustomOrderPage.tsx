@@ -56,20 +56,28 @@ type AiConceptModalState = {
 };
 
 export default function CustomOrderPage() {
-  const { customizedMaterials, addOrder } = useAppData();
+  const {
+    customizedMaterials,
+    submitNormalizedCustomOrder,
+    savePhotoboothQrCode,
+    createChatSession,
+    logChatMessage,
+  } = useAppData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const photoboothSectionRef = useRef<HTMLDivElement>(null);
 
-  // Form State (Unchanged Custom Order)
+  // Form State
   const [category, setCategory] = useState("Bouquets");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [themeInput, setThemeInput] = useState("");
   const [size, setSize] = useState("Medium");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [aiConceptsLog, setAiConceptsLog] = useState<{ prompt: string; imageUrl: string }[]>([]);
+  const [usedAiChat, setUsedAiChat] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
@@ -78,6 +86,7 @@ export default function CustomOrderPage() {
   const [notes, setNotes] = useState("");
 
   // AI Chat & Modal State
+  const [chatSessionId, setChatSessionId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { id: "w-1", sender: "bot", text: "Hi there! I'm your AI Co-Designer. Describe your dream bouquet, and I'll generate a concept image for you!" }
   ]);
@@ -165,10 +174,19 @@ export default function CustomOrderPage() {
         },
       });
 
+      // Persist generated QR & share code to Supabase `photobooth_qr_code`
+      await savePhotoboothQrCode({
+        shareCode,
+        presetId: pbPresetId,
+        bannerTitle: payloadObj.title,
+        bannerSubtitle: payloadObj.subtitle,
+        autoStickers: pbAutoStickers,
+      });
+
       setGeneratedQrDataUrl(qrDataUrl);
       setGeneratedShareCode(shareCode);
       setIsCodeCopied(false);
-      toast.success("Photobooth QR & pasteable code ready!");
+      toast.success("Photobooth QR & pasteable code saved and ready!");
     } catch (err) {
       console.error("QR generation failed:", err);
       toast.error("Could not generate QR/code. Try shortening your banner text.");
@@ -209,6 +227,15 @@ export default function CustomOrderPage() {
     }
 
     setAiModal((prev) => ({ ...prev, isOpen: false }));
+    setUsedAiChat(true);
+
+    // Ensure a `chat_session` row exists in Supabase and log customer message
+    let activeSessionId = chatSessionId;
+    if (!activeSessionId) {
+      activeSessionId = await createChatSession();
+      setChatSessionId(activeSessionId);
+    }
+    logChatMessage(activeSessionId, "Customer", userPrompt);
 
     const newMsgId = `u-${Date.now()}`;
     setChatMessages((prev) => [...prev, { id: newMsgId, sender: "user", text: userPrompt }]);
@@ -244,6 +271,7 @@ export default function CustomOrderPage() {
 
       const botMsgId = `b-${Date.now()}`;
       setChatMessages((prev) => [...prev, { id: botMsgId, sender: "bot", text: parsedAi.chat_response }]);
+      logChatMessage(activeSessionId, "AI", parsedAi.chat_response);
       setIsAiThinking(false);
 
       if (parsedAi.cloudflare_prompt && parsedAi.cloudflare_prompt.trim() !== "" && parsedAi.cloudflare_prompt !== "null") {
@@ -275,11 +303,12 @@ export default function CustomOrderPage() {
           ...prev,
           { id: `img-${Date.now()}`, sender: "bot", text: "Here is your generated concept! ✨", imageUrl: finalImageUrl }
         ]);
+        logChatMessage(activeSessionId, "AI", "Generated AI bouquet concept image.");
 
         setAiModal({
           isOpen: true,
           imageUrl: finalImageUrl,
-          prompt: userPrompt,
+          prompt: parsedAi.cloudflare_prompt,
           isAdded: false,
         });
 
@@ -320,6 +349,7 @@ export default function CustomOrderPage() {
     if (!aiModal.imageUrl) return;
     if (!images.includes(aiModal.imageUrl)) {
       setImages((prev) => [...prev, aiModal.imageUrl!]);
+      setAiConceptsLog((prev) => [...prev, { prompt: aiModal.prompt, imageUrl: aiModal.imageUrl! }]);
       setAiModal((prev) => ({ ...prev, isAdded: true }));
       toast.success("Added concept to your Inspiration Board!");
     } else {
@@ -394,10 +424,24 @@ export default function CustomOrderPage() {
         images.map((img) => uploadLocalImageToSupabase(img))
       );
 
+      const uploadedAiConcepts = await Promise.all(
+        aiConceptsLog.map(async (c) => ({
+          prompt: c.prompt,
+          imageUrl: await uploadLocalImageToSupabase(c.imageUrl),
+        }))
+      );
+
       const orderId = `#YC-CUST-${Math.floor(1000 + Math.random() * 9000)}`;
-      const selectedMaterialsSummary = customizedMaterials
+      const selectedMaterialsList = customizedMaterials
         .filter((m) => (quantities[m.id] || 0) > 0)
-        .map((m) => `${quantities[m.id]}x ${m.name}`)
+        .map((m) => ({
+          materialId: m.id,
+          name: m.name,
+          quantity: quantities[m.id],
+        }));
+
+      const selectedMaterialsSummary = selectedMaterialsList
+        .map((m) => `${m.quantity}x ${m.name}`)
         .join(", ");
 
       let compiledTitle = `Custom ${category}`;
@@ -408,21 +452,27 @@ export default function CustomOrderPage() {
         compiledDefinition += ` | Theme: ${themeInput}`;
       }
 
-      const fullNotes = `Contact: ${customerContact}\nAddress: ${customerAddress}\nAdditional Notes: ${notes}`;
-
-      await addOrder({
-        id: orderId,
+      // Save across normalized 3NF tables: `customer`, `customization_inquiry`, `inquiry_material`, `reference_image`, `ai_design`, `orders`
+      await submitNormalizedCustomOrder({
+        orderId,
         title: compiledTitle,
         price: totalPrice,
         category,
-        status: "Pending",
+        size,
+        themeInput,
         description: description || "Custom client request.",
         definition: compiledDefinition,
-        customer: customerName,
-        payment: "GCASH",
-        paymentDate: new Date().toLocaleDateString(),
-        notes: fullNotes,
+        customerName,
+        customerContact,
+        customerAddress,
+        notes,
+        selectedMaterials: selectedMaterialsList.map((m) => ({
+          materialId: m.materialId,
+          quantity: m.quantity,
+        })),
         images: publicImageUrls,
+        aiConcepts: uploadedAiConcepts,
+        submissionMethod: usedAiChat ? "AI Chat" : "Form",
       });
 
       let inspoText = "";
@@ -724,7 +774,6 @@ export default function CustomOrderPage() {
           </div>
 
           <div className="bg-[#140e11] border border-[#ca498c]/45 rounded-[20px] p-4 sm:p-6 space-y-6 shadow-[0_10px_40px_rgba(202,73,140,0.18)]">
-            {/* Premade Design Grid */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-white/85 mb-3">
                 1. Choose a Premade Photobooth Design
@@ -771,7 +820,6 @@ export default function CustomOrderPage() {
               </div>
             </div>
 
-            {/* Custom Banner Text & Live Preview */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
               <div className="space-y-3">
                 <div>
@@ -822,7 +870,6 @@ export default function CustomOrderPage() {
                 </label>
               </div>
 
-              {/* Live Theme Preview Box */}
               <div
                 className="rounded-[16px] p-4 border flex flex-col justify-between min-h-[175px]"
                 style={{
@@ -861,7 +908,6 @@ export default function CustomOrderPage() {
               </div>
             </div>
 
-            {/* Generate QR & Alternative Code Section */}
             <div className="pt-3 space-y-4 border-t border-white/10">
               <button
                 type="button"
@@ -883,7 +929,6 @@ export default function CustomOrderPage() {
 
               {generatedQrDataUrl && generatedShareCode && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/40 border border-white/15 rounded-[16px] p-3.5 sm:p-4">
-                  {/* Option A: QR Code */}
                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-3.5 sm:gap-4">
                     <img
                       src={generatedQrDataUrl}
@@ -907,7 +952,6 @@ export default function CustomOrderPage() {
                     </div>
                   </div>
 
-                  {/* Option B: Copy-Pasteable Alternative Code */}
                   <div className="flex flex-col justify-between bg-[#140e11] border border-[#ca498c]/35 rounded-[12px] p-3.5 space-y-2.5 min-w-0">
                     <div>
                       <p className="text-xs font-semibold text-[#E8A0BE]">

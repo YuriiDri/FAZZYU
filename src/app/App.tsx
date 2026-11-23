@@ -21,6 +21,7 @@ import AdminAddEditPage from "./pages/admin/AdminAddEditPage";
 import AdminAddOrderPage from "./pages/admin/AdminAddOrderPage";
 import AdminEditOrderPage from "./pages/admin/AdminEditOrderPage";
 import AdminOrderListPage from "./pages/admin/AdminOrderListPage";
+import AdminOrderDetailPage from "./pages/admin/AdminOrderDetailPage";
 import AdminInventoryPage from "./pages/admin/AdminInventoryPage";
 import AdminAddNewItemPage from "./pages/admin/AdminAddNewItemPage";
 import AdminEditItemPage from "./pages/admin/AdminEditItemPage";
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/admin/orders/new" element={<AdminShell><AdminAddOrderPage /></AdminShell>} />
           <Route path="/admin/orders/:id/edit" element={<AdminShell><AdminEditOrderPage /></AdminShell>} />
           <Route path="/admin/order-list" element={<AdminShell><AdminOrderListPage /></AdminShell>} />
+          <Route path="/admin/order-list/:id" element={<AdminShell><AdminOrderDetailPage /></AdminShell>} />
           <Route path="/admin/inventory" element={<AdminShell><AdminInventoryPage /></AdminShell>} />
           <Route path="/admin/inventory/new" element={<AdminShell><AdminAddNewItemPage /></AdminShell>} />
           <Route path="/admin/inventory/:id/edit" element={<AdminShell><AdminEditItemPage /></AdminShell>} />

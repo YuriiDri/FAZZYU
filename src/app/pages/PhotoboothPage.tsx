@@ -17,10 +17,12 @@ import {
 import { Rnd } from "react-rnd";
 import jsQR from "jsqr";
 import { toast } from "sonner";
+import { useAppData } from "@/app/context/AppDataContext";
 import {
   PHOTOBOOTH_PRESETS,
   getPresetById,
   decodePhotoboothQR,
+  encodePhotoboothCode,
   type PhotoboothQRPayload,
 } from "@/app/utils/photoboothThemes";
 
@@ -38,6 +40,8 @@ type Sticker = {
 };
 
 export default function PhotoboothPage() {
+  const { logPhotoboothActivity } = useAppData();
+
   const [hasPermission, setHasPermission] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -82,6 +86,7 @@ export default function PhotoboothPage() {
       });
       setStream(mediaStream);
       setHasPermission(true);
+      logPhotoboothActivity();
       toast.success("Camera connected securely.");
     } catch (err) {
       console.error(err);
@@ -102,51 +107,55 @@ export default function PhotoboothPage() {
   }, [stream]);
 
   // Apply decoded QR or pasted code payload to the Photobooth
-  const applyScannedTheme = useCallback((payload: PhotoboothQRPayload) => {
-    const preset = getPresetById(payload.presetId);
-    setCustomTheme(payload);
-    setPastedCode("");
-    setIsScannerOpen(false);
+  const applyScannedTheme = useCallback(
+    (payload: PhotoboothQRPayload) => {
+      const preset = getPresetById(payload.presetId);
+      setCustomTheme(payload);
+      setPastedCode("");
+      setIsScannerOpen(false);
+      logPhotoboothActivity(encodePhotoboothCode(payload));
 
-    if (payload.autoStickers) {
-      const vw = typeof window !== "undefined" ? window.innerWidth : 1000;
-      const vh = typeof window !== "undefined" ? window.innerHeight - 72 : 800;
-      const now = Date.now();
+      if (payload.autoStickers) {
+        const vw = typeof window !== "undefined" ? window.innerWidth : 1000;
+        const vh = typeof window !== "undefined" ? window.innerHeight - 72 : 800;
+        const now = Date.now();
 
-      const themedStickers: Sticker[] = [
-        {
-          id: `stk-qr-1-${now}`,
-          type: "emoji",
-          content: preset.stickers[0] ?? "🌸",
-          x: Math.max(20, vw * 0.16),
-          y: Math.max(24, vh * 0.14),
-          width: 72,
-          height: 72,
-        },
-        {
-          id: `stk-qr-2-${now}`,
-          type: "emoji",
-          content: preset.stickers[1] ?? "✨",
-          x: Math.min(vw - 96, vw * 0.72),
-          y: Math.max(24, vh * 0.14),
-          width: 72,
-          height: 72,
-        },
-        {
-          id: `stk-qr-3-${now}`,
-          type: "badge",
-          content: preset.defaultBadge,
-          x: Math.max(20, Math.min(vw - 200, vw * 0.65)),
-          y: Math.max(100, Math.min(vh - 210, vh * 0.64)),
-          width: 180,
-          height: 44,
-        },
-      ];
-      setStickers(themedStickers);
-    }
+        const themedStickers: Sticker[] = [
+          {
+            id: `stk-qr-1-${now}`,
+            type: "emoji",
+            content: preset.stickers[0] ?? "🌸",
+            x: Math.max(20, vw * 0.16),
+            y: Math.max(24, vh * 0.14),
+            width: 72,
+            height: 72,
+          },
+          {
+            id: `stk-qr-2-${now}`,
+            type: "emoji",
+            content: preset.stickers[1] ?? "✨",
+            x: Math.min(vw - 96, vw * 0.72),
+            y: Math.max(24, vh * 0.14),
+            width: 72,
+            height: 72,
+          },
+          {
+            id: `stk-qr-3-${now}`,
+            type: "badge",
+            content: preset.defaultBadge,
+            x: Math.max(20, Math.min(vw - 200, vw * 0.65)),
+            y: Math.max(100, Math.min(vh - 210, vh * 0.64)),
+            width: 180,
+            height: 44,
+          },
+        ];
+        setStickers(themedStickers);
+      }
 
-    toast.success(`Custom Photobooth activated: ${preset.name}!`);
-  }, []);
+      toast.success(`Custom Photobooth activated: ${preset.name}!`);
+    },
+    [logPhotoboothActivity]
+  );
 
   function handleApplyPastedCode() {
     if (!pastedCode.trim()) {
