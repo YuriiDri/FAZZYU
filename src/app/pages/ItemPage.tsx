@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight, ArrowLeft, Facebook, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Facebook, AlertCircle, Star } from "lucide-react";
 import { useAppData } from "@/app/context/AppDataContext";
+import { useHighlightedProducts } from "@/app/hooks/useHighlightedProducts";
 
 import imgSampleImage from "@/imports/ItemPage/8bbe4ef13bf84089b951b93a9d69a2de0996fbf9.png";
 import imgThumb1 from "@/imports/ItemPage/d7078e40fc882ddccc638516132dfc75f027f319.png";
@@ -14,6 +15,7 @@ export default function ItemPage() {
   const { id: rawId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { orders } = useAppData();
+  const { isHighlighted, toggleHighlight } = useHighlightedProducts();
 
   const id = rawId ? decodeURIComponent(rawId) : "";
 
@@ -54,6 +56,7 @@ export default function ItemPage() {
   function next() { setMainIndex((i) => (i + 1) % images.length); }
 
   const isAvailable = order.status === "Available";
+  const starred = isHighlighted(String(order.id));
 
   // Formats the automated pre-filled text query string for Messenger
   const fbMessage = encodeURIComponent(
@@ -64,19 +67,44 @@ export default function ItemPage() {
   return (
     <div className="bg-bg-base min-h-screen text-text-primary font-sans">
       <div className="page-container py-8 lg:py-12">
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.35 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 font-sans text-sm text-text-muted hover:text-text-primary transition-colors mb-8 group cursor-pointer"
-        >
-          <motion.span whileHover={{ x: -3 }}>
-            <ArrowLeft className="w-4 h-4" />
-          </motion.span>
-          Back
-        </motion.button>
+        {/* Top Row: Back Button (Left) & Highlight Button (Right, same height) */}
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <motion.button
+            initial={{ opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.35 }}
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 font-sans text-sm text-text-muted hover:text-text-primary transition-colors group cursor-pointer"
+          >
+            <motion.span whileHover={{ x: -3 }}>
+              <ArrowLeft className="w-4 h-4" />
+            </motion.span>
+            Back
+          </motion.button>
+
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.35 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => toggleHighlight(String(order.id))}
+            aria-label={starred ? "Remove from highlights" : "Highlight bouquet"}
+            className={`h-10 px-4 rounded-full border font-sans text-[13px] font-medium flex items-center gap-2 transition-all duration-200 cursor-pointer ${
+              starred
+                ? "bg-[#ca498c] border-[#fdd0d0]/50 text-white shadow-[0_4px_20px_rgba(202,73,140,0.45)]"
+                : "bg-bg-surface border-border-accent/30 text-text-muted hover:border-border-accent hover:text-text-primary"
+            }`}
+          >
+            <Star
+              className={`w-4 h-4 transition-transform duration-200 ${
+                starred ? "fill-amber-300 text-amber-300 scale-110" : ""
+              }`}
+            />
+            <span>{starred ? "Highlighted" : "Highlight"}</span>
+          </motion.button>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
           {/* ── Left: Image Area ── */}
